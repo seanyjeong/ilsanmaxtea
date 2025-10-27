@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <title>학생 명단 대시보드 (선생님)</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #2563eb; --primary-dark:#1d4ed8;
+            --light-bg: #f8fafc; --card-bg: #ffffff;
+            --border-color: #e2e8f0; --text-primary:#1e293b; --text-secondary:#475569;
+            --danger-color: #ef4444; --success-color: #10b981; --warning-color: #f59e0b;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        * { box-sizing: border-box; }
+        body { font-family: 'Pretendard', sans-serif; background: var(--light-bg); padding: 20px; margin: 0; line-height: 1.5; color: var(--text-primary); }
+        .container { max-width: 1200px; margin: 0 auto; }
+
+        /* ---------- Header & Controls ---------- */
+        .header {
+            display: flex; justify-content: space-between; align-items: center;
+            gap: 12px; flex-wrap: wrap;
+            background: var(--card-bg); padding: 16px 18px; border-radius: 12px; box-shadow: var(--shadow);
+            margin-bottom: 20px;
+        }
+        .header h1 { font-size: 1.6rem; color: var(--primary-color); margin: 0; display: flex; align-items: center; gap: 10px; }
+        .header-controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        .chip { display: inline-flex; align-items: center; gap: 6px; background: var(--light-bg); padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border-color); }
+        .chip label { font-size: .9rem; color: var(--text-secondary); white-space: nowrap; }
+        select { padding: 8px 10px; border: 1px solid var(--border-color); border-radius: 6px; background: #fff; font-size: .95rem; min-width: 150px; }
+        .btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 14px; border: none; border-radius: 8px; font-weight: 600; font-size: .9rem; cursor: pointer; transition: .2s; }
+        
+        /* ---------- 학생 카드 그리드 ---------- */
+        .student-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); /* ⭐️ 반응형 그리드 */
+            gap: 20px;
+        }
+        .student-card {
+            background: var(--card-bg); border-radius: 12px; box-shadow: var(--shadow);
+            padding: 18px; transition: all 0.2s ease-in-out;
+            cursor: pointer;
+        }
+        .student-card:hover {
+            transform: translateY(-5px); box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+        }
+        .student-header {
+            display: flex; justify-content: space-between; align-items: flex-start;
+            border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 10px;
+        }
+        .student-name { font-size: 1.3rem; font-weight: 700; color: var(--primary-color); }
+        .student-class { font-size: 0.9rem; font-weight: 500; color: var(--text-secondary); }
+        
+        /* ⭐️ 부상 뱃지 */
+        .status-badge {
+            font-size: 0.8rem; font-weight: 600; color: white;
+            padding: 3px 8px; border-radius: 12px;
+        }
+        .status-badge.injury { background-color: var(--danger-color); }
+        
+        .student-info { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.9rem; }
+        .info-item { background: #f8fafc; padding: 5px 8px; border-radius: 6px; }
+        .info-item .label { color: var(--text-secondary); margin-right: 5px; }
+        .info-item .value { font-weight: 600; }
+
+        /* 로딩/데이터 없음 */
+        .loading, .no-data { text-align: center; padding: 30px; color: var(--text-secondary); }
+
+        /* ---------- 모달 스타일 ---------- */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0,0,0,0.5); z-index: 100;
+            display: none; justify-content: center; align-items: center;
+            opacity: 0; transition: opacity 0.3s ease; padding: 20px;
+        }
+        .modal-overlay.show { display: flex; opacity: 1; }
+        .modal-content {
+            background-color: #fff; border-radius: var(--border-radius);
+            width: 90%; max-width: 600px; max-height: 80vh;
+            display: flex; flex-direction: column;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            transform: scale(0.95); transition: transform 0.3s ease;
+        }
+        .modal-overlay.show .modal-content { transform: scale(1); }
+        .modal-header {
+            padding: 15px 20px; border-bottom: 1px solid var(--border-color);
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .modal-header h3 { margin: 0; font-size: 1.2rem; }
+        .modal-header .close-btn { background: none; border: none; font-size: 24px; color: var(--gray); cursor: pointer; }
+        .modal-body { padding: 20px; overflow-y: auto; }
+        
+        /* ⭐️ 모달 안 대학 목록 */
+        .saved-uni-list { list-style: none; padding: 0; margin: 0; }
+        .saved-uni-item {
+             background: var(--light-bg); border-radius: 8px;
+             padding: 12px 15px; margin-bottom: 10px;
+             border-left: 4px solid var(--primary-color);
+        }
+        .saved-uni-item .uni-name { font-weight: 600; font-size: 1rem; color: var(--primary-dark); }
+        .saved-uni-item .dept-name { font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 8px; }
+        .saved-uni-details {
+             display: flex; justify-content: space-between; align-items: center;
+             font-size: 0.85rem; border-top: 1px dashed var(--border-color); padding-top: 8px;
+        }
+        .saved-uni-details .gun { font-weight: 600; }
+        .saved-uni-details .score { font-weight: 600; color: var(--danger-color); }
+        .saved-uni-events {
+            font-size: 0.8rem; color: var(--text-secondary); margin-top: 8px;
+            padding-top: 8px; border-top: 1px dashed var(--border-color);
+        }
+        .saved-uni-events strong { color: var(--text-primary); }
+
+        /* --- Toast Popup --- */
+        .toast-popup {
+            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+            background-color: rgba(0,0,0,0.8); color: white; padding: 10px 18px; border-radius: 20px;
+            font-size: 0.9rem; z-index: 1002; opacity: 0; transition: opacity 0.3s, bottom 0.3s;
+            pointer-events: none;
+        }
+        .toast-popup.show { opacity: 1; bottom: 40px; }
+        .toast-popup.success { background-color: var(--success-color); }
+        .toast-popup.error { background-color: var(--danger-color); }
+        
+        /* --- 모바일 반응형 --- */
+        @media (max-width: 767px) {
+            body { padding: 10px; }
+            .header { flex-direction: column; align-items: stretch; padding: 15px; }
+            .header h1 { font-size: 1.4rem; }
+            .header-controls { flex-direction: column; align-items: stretch; }
+            .chip { justify-content: space-between; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h1><i class="fas fa-users"></i> 학생 명단 대시보드</h1>
+        <div class="header-controls">
+            <div class="chip">
+                <label for="year-select"><i class="fas fa-calendar-alt"></i> 학년도</label>
+                <select id="year-select">
+                    <option value="2026">2026</option>
+                    <option value="2027">2027</option>
+                    <option value="2028">2028</option>
+                </select>
+            </div>
+        </div>
+    </div>
+    
+    <div class="student-grid" id="studentGrid">
+        <p class="loading" id="studentListLoading"><i class="fas fa-spinner fa-spin"></i> 학생 목록 로딩 중...</p>
+        </div>
+</div>
+
+<div class="modal-overlay" id="studentDetailModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modalStudentName">학생 이름</h3>
+            <button class="close-btn" onclick="closeStudentModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <h4 style="margin-top:0;">저장한 대학 목록</h4>
+            <ul class="saved-uni-list" id="modalSavedUniList">
+                <p class="loading"><i class="fas fa-spinner fa-spin"></i> 저장 대학 로딩 중...</p>
+                </ul>
+        </div>
+    </div>
+</div>
+
+
+<template id="studentCardTemplate">
+    <div class="student-card" onclick="openStudentModal(this.dataset.accountId, this.dataset.studentName)">
+        <div class="student-header">
+            <div>
+                <div class="student-name">학생 이름</div>
+                <div class="student-class">반 이름</div>
+            </div>
+            <div class="status-badge-container">
+                </div>
+        </div>
+        <div class="student-info">
+            <div class="info-item"><span class="label">성별:</span> <span class="value gender">남</span></div>
+            <div class="info-item"><span class="label">학년:</span> <span class="value grade">3</span></div>
+        </div>
+    </div>
+</template>
+
+<template id="savedUniItemTemplate">
+    <li class="saved-uni-item">
+        <div class="uni-name">대학명</div>
+        <div class="dept-name">학과명</div>
+        <div class="saved-uni-details">
+            <span class="gun">가군</span>
+            <span class="score">수능점수: 0.00점</span>
+        </div>
+        <div class="saved-uni-events">
+            <strong>실기:</strong> <span class="events-list">실기 종목 없음</span>
+        </div>
+    </li>
+</template>
+
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // --- 서버 및 인증 ---
+        const SVR_JUNGSI = 'https://supermax.kr';
+        const LOGIN_PAGE = 'admin_login.html'; // 관리자 로그인 페이지
+
+        // --- HTML 요소 ---
+        const yearSelect = document.getElementById('year-select');
+        const studentGrid = document.getElementById('studentGrid');
+        const studentListLoading = document.getElementById('studentListLoading');
+        const studentDetailModal = document.getElementById('studentDetailModal');
+        const modalStudentName = document.getElementById('modalStudentName');
+        const modalSavedUniList = document.getElementById('modalSavedUniList');
+
+        let myStudents = []; // 내 담당 학생 목록
+        let currentUser = null; // 로그인한 선생님(원장) 정보
+
+        // --- 인증 확인 ---
+        const getToken = () => localStorage.getItem('jwt_token');
+        const token = getToken();
+        if (!token) { alert('로그인이 필요합니다.'); window.location.href = LOGIN_PAGE; return; }
+        try {
+            const payloadBase64Url = token.split('.')[1];
+            const payloadBase64 = payloadBase64Url.replace(/-/g, '+').replace(/_/g, '/');
+            const decodedString = new TextDecoder().decode(Uint8Array.from(atob(payloadBase64), c => c.charCodeAt(0)));
+            currentUser = JSON.parse(decodedString);
+            console.log("로그인 사용자:", currentUser);
+        } catch (e) {
+            console.error('토큰 처리 실패:', e); alert('인증 정보 오류.'); window.location.href = LOGIN_PAGE; return;
+        }
+
+        // --- API 호출 함수 (인증 포함) ---
+        const apiCall = async (url, options = {}) => {
+            const currentToken = getToken();
+            if (!currentToken) { alert('로그인 세션 만료'); window.location.href = LOGIN_PAGE; throw new Error('로그인 만료'); }
+            options.headers = { ...options.headers, 'Authorization': `Bearer ${currentToken}` };
+            try {
+                const response = await fetch(url, options);
+                if (response.status === 401 || response.status === 403) {
+                     alert('인증 오류 또는 권한 없음'); localStorage.removeItem('jwt_token'); window.location.href = LOGIN_PAGE; throw new Error('인증 오류');
+                }
+                if (!response.ok) {
+                    let errorMsg = `HTTP 오류 ${response.status}`; try { const errorData = await response.json(); errorMsg = errorData.message || errorMsg; } catch (_) {} throw new Error(errorMsg);
+                }
+                if (response.status === 204) { return { success: true }; }
+                return await response.json();
+            } catch (error) {
+                console.error('API 호출 실패:', url, error);
+                if (error.message !== '로그인 만료' && error.message !== '인증 오류') { throw new Error(error.message || '네트워크 오류'); } throw error;
+            }
+        };
+
+        // --- Toast Popup 함수 ---
+        const showToast = (message, isSuccess = true) => { const el = document.createElement('div'); el.textContent = message; el.className = `toast-popup ${isSuccess ? 'success' : 'error'}`; document.body.appendChild(el); setTimeout(() => el.classList.add('show'), 10); setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 500); }, 2500); };
+        
+        // --- 1. 내 담당 학생 목록 로드 및 렌더링 ---
+        const loadMyStudents = async () => {
+            const selectedYear = yearSelect.value;
+            studentListLoading.style.display = 'block';
+            studentGrid.innerHTML = ''; // 기존 카드 제거
+            studentGrid.appendChild(studentListLoading); // 로딩 메시지 다시 추가
+            myStudents = [];
+
+            try {
+                // ⭐️ API 호출: 내 담당 학생 목록 (학년, 성별, 부상여부 포함)
+                const data = await apiCall(`${SVR_JUNGSI}/jungsi/teacher/my-students?year=${selectedYear}`);
+                
+                studentListLoading.style.display = 'none'; // 로딩 메시지 숨김
+                
+                if (data.success && data.students) {
+                    myStudents = data.students;
+                    if (myStudents.length === 0) {
+                         studentGrid.innerHTML = '<p class="no-data">담당 학생이 없습니다. (반 배정 필요)</p>';
+                         return;
+                    }
+                    // 학생 카드 렌더링
+                    myStudents.forEach(student => {
+                        const card = createStudentCard(student);
+                        studentGrid.appendChild(card);
+                    });
+                } else {
+                    studentGrid.innerHTML = `<p class="no-data">학생 목록 로드 실패: ${data.message || '오류'}</p>`;
+                }
+            } catch (err) {
+                console.error('담당 학생 목록 로딩 오류:', err);
+                studentListLoading.style.display = 'none';
+                studentGrid.innerHTML = `<p class="no-data">오류 발생: ${err.message}</p>`;
+            }
+        };
+        
+        // --- 2. 학생 카드 생성 함수 ---
+        const createStudentCard = (student) => {
+            const template = document.getElementById('studentCardTemplate');
+            const card = template.content.cloneNode(true).firstElementChild;
+            
+            card.dataset.accountId = student.account_id;
+            card.dataset.studentName = student.student_name; // 모달용 이름 저장
+            
+            card.querySelector('.student-name').textContent = student.student_name || '이름 없음';
+            card.querySelector('.student-class').textContent = student.class_name || '반 미배정';
+            card.querySelector('.gender').textContent = student.gender || '?';
+            card.querySelector('.grade').textContent = student.grade || '?';
+
+            // ⭐️ 부상 뱃지 표시
+            if (student.injury_status === '부상') {
+                const badgeContainer = card.querySelector('.status-badge-container');
+                const badge = document.createElement('span');
+                badge.className = 'status-badge injury';
+                badge.innerHTML = '<i class="fas fa-briefcase-medical"></i> 부상';
+                badgeContainer.appendChild(badge);
+            }
+            
+            return card;
+        };
+
+        // --- 3. 학생 상세 모달 열기 ---
+        window.openStudentModal = async (accountId, studentName) => {
+            if (!accountId) return;
+            
+            const selectedYear = yearSelect.value;
+            modalStudentName.textContent = `${studentName} 학생`;
+            modalSavedUniList.innerHTML = '<p class="loading"><i class="fas fa-spinner fa-spin"></i> 저장 대학 로딩 중...</p>';
+            studentDetailModal.classList.add('show');
+            
+            try {
+                // ⭐️ API 호출: 학생별 저장 대학 + 실기 종목 조회
+                const data = await apiCall(`${SVR_JUNGSI}/jungsi/teacher/student-saved-list/${accountId}/${selectedYear}`);
+                
+                if (data.success && data.savedUniversities) {
+                    renderSavedUniList(data.savedUniversities);
+                } else {
+                     modalSavedUniList.innerHTML = `<p class="no-data">저장 대학 목록 로드 실패: ${data.message || '오류'}</p>`;
+                }
+            } catch (err) {
+                console.error('학생 저장 대학 로딩 오류:', err);
+                modalSavedUniList.innerHTML = `<p class="no-data">오류 발생: ${err.message}</p>`;
+            }
+        };
+        
+        // --- 4. 모달 닫기 ---
+        window.closeStudentModal = () => {
+             studentDetailModal.classList.remove('show');
+        };
+        
+        // --- 5. 모달 내 대학 목록 렌더링 ---
+        const renderSavedUniList = (universities) => {
+            modalSavedUniList.innerHTML = ''; // 로딩 메시지 제거
+            if (universities.length === 0) {
+                modalSavedUniList.innerHTML = '<p class="no-data">저장한 대학이 없습니다.</p>';
+                return;
+            }
+            
+            const template = document.getElementById('savedUniItemTemplate');
+            universities.forEach(uni => {
+                const item = template.content.cloneNode(true).firstElementChild;
+                item.querySelector('.uni-name').textContent = uni.대학명;
+                item.querySelector('.dept-name').textContent = uni.학과명;
+                item.querySelector('.gun').textContent = `${uni.군 || '?'}군`;
+                item.querySelector('.score').textContent = `수능점수: ${uni.calculated_suneung_score || 'N/A'}점`;
+                
+                // ⭐️ 실기 종목 표시
+                const eventsList = item.querySelector('.events-list');
+                if (uni.events && uni.events.length > 0) {
+                    eventsList.textContent = uni.events.join(', '); // API에서 받은 배열 사용
+                } else {
+                    eventsList.textContent = '실기 종목 없음';
+                    eventsList.style.color = 'var(--gray)';
+                }
+                
+                modalSavedUniList.appendChild(item);
+            });
+        };
+
+        // --- 이벤트 리스너 연결 ---
+        yearSelect.addEventListener('change', loadMyStudents);
+
+        // --- 초기 실행 ---
+        loadMyStudents(); // 페이지 로드 시 학생 목록 바로 로드
+
+    });
+</script>
+
+</body>
+</html>

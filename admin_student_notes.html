@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <title>학생 특이사항 메모 (선생님)</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #2563eb; --primary-dark:#1d4ed8;
+            --light-bg: #f8fafc; --card-bg: #ffffff;
+            --border-color: #e2e8f0; --text-primary:#1e293b; --text-secondary:#475569;
+            --danger-color: #ef4444; --success-color: #10b981; --warning-color: #f59e0b;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        * { box-sizing: border-box; }
+        body { font-family: 'Pretendard', sans-serif; background: var(--light-bg); padding: 20px; margin: 0; line-height: 1.5; color: var(--text-primary); }
+        .container { max-width: 900px; margin: 0 auto; }
+
+        /* ---------- Header & Controls ---------- */
+        .header {
+            display: flex; justify-content: space-between; align-items: center;
+            gap: 12px; flex-wrap: wrap;
+            background: var(--card-bg); padding: 16px 18px; border-radius: 12px; box-shadow: var(--shadow);
+            margin-bottom: 20px;
+        }
+        .header h1 { font-size: 1.6rem; color: var(--primary-color); margin: 0; display: flex; align-items: center; gap: 10px; }
+        .header-controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        .chip { display: inline-flex; align-items: center; gap: 6px; background: var(--light-bg); padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border-color); }
+        .chip label { font-size: .9rem; color: var(--text-secondary); white-space: nowrap; }
+        select { padding: 8px 10px; border: 1px solid var(--border-color); border-radius: 6px; background: #fff; font-size: .95rem; min-width: 150px; }
+        .btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 14px; border: none; border-radius: 8px; font-weight: 600; font-size: .9rem; cursor: pointer; transition: .2s; }
+        .btn-primary { background: var(--primary-color); color: #fff; }
+        .btn-primary:hover { background: var(--primary-dark); }
+        .btn-primary:disabled { background: #9ca3af; cursor: not-allowed; opacity: 0.7; }
+
+        /* ---------- Card ---------- */
+        .card { background: var(--card-bg); border-radius: 12px; box-shadow: var(--shadow); padding: 20px; margin-bottom: 20px; }
+        .card-title { font-size: 1.3rem; font-weight: 600; margin: 0 0 15px; padding-bottom: 10px; border-bottom: 1px solid var(--border-color); }
+        
+        /* ---------- 2단 레이아웃 ---------- */
+        .memo-layout { display: grid; grid-template-columns: 1fr; gap: 20px; }
+        @media (min-width: 768px) {
+            .memo-layout { grid-template-columns: 1fr 1fr; } /* PC: 좌측 메모 작성, 우측 메모 이력 */
+        }
+        
+        /* 폼 요소 */
+        .form-group { display: flex; flex-direction: column; margin-bottom: 15px; }
+        .form-group label { font-size: 0.9rem; font-weight: 600; margin-bottom: 6px; color: var(--text-secondary); }
+        .form-group textarea {
+            width: 100%; min-height: 120px; padding: 10px; font-size: 0.95rem;
+            border: 1px solid var(--border-color); border-radius: 8px; font-family: 'Pretendard', sans-serif;
+            resize: vertical;
+        }
+        .form-group select { width: 100%; }
+        
+        /* 메모 이력 (우측) */
+        .note-history-list { list-style: none; padding: 0; margin: 0; max-height: 500px; overflow-y: auto; }
+        .note-item {
+            background: #f8fafc; border: 1px solid var(--border-color);
+            border-radius: 8px; padding: 12px; margin-bottom: 10px;
+        }
+        .note-header {
+            display: flex; justify-content: space-between; align-items: center;
+            font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 8px;
+            padding-bottom: 8px; border-bottom: 1px dashed var(--border-color);
+        }
+        .note-header .teacher-name { font-weight: 600; color: var(--text-primary); }
+        .note-header .category {
+            background: var(--warning-color); color: white; font-weight: 600;
+            font-size: 0.75rem; padding: 2px 6px; border-radius: 4px;
+        }
+        .note-content { font-size: 0.95rem; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
+        
+        /* 로딩/데이터 없음 */
+        .loading, .no-data { text-align: center; padding: 30px; color: var(--text-secondary); }
+
+        /* --- Toast Popup --- */
+        .toast-popup {
+            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+            background-color: rgba(0,0,0,0.8); color: white; padding: 10px 18px; border-radius: 20px;
+            font-size: 0.9rem; z-index: 1002; opacity: 0; transition: opacity 0.3s, bottom 0.3s;
+            pointer-events: none;
+        }
+        .toast-popup.show { opacity: 1; bottom: 40px; }
+        .toast-popup.success { background-color: var(--success-color); }
+        .toast-popup.error { background-color: var(--danger-color); }
+        
+        /* --- 모바일 반응형 --- */
+        @media (max-width: 767px) {
+            body { padding: 10px; }
+            .header { flex-direction: column; align-items: stretch; padding: 15px; }
+            .header h1 { font-size: 1.4rem; }
+            .header-controls { flex-direction: column; align-items: stretch; }
+            .chip { justify-content: space-between; }
+            .btn { justify-content: center; }
+            .card { padding: 15px; }
+            .memo-layout { grid-template-columns: 1fr; }
+            .note-history-list { max-height: 40vh; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h1><i class="fas fa-file-medical"></i> 학생 특이사항 메모</h1>
+        <div class="header-controls">
+            <div class="chip">
+                <label for="year-select"><i class="fas fa-calendar-alt"></i> 학년도</label>
+                <select id="year-select">
+                    <option value="2026">2026</option>
+                    <option value="2027">2027</option>
+                    <option value="2028">2028</option>
+                </select>
+            </div>
+             <div class="chip">
+                <label for="student-select"><i class="fas fa-user-graduate"></i> 학생</label>
+                <select id="student-select">
+                    <option value="">- 학년도 선택 -</option>
+                </select>
+            </div>
+        </div>
+    </div>
+    
+    <div class="memo-layout">
+        <div class="card">
+            <h4 class="card-title">새 메모 작성</h4>
+            <div class="form-group">
+                <label for="noteCategory">카테고리 (선택)</label>
+                <select id="noteCategory">
+                    <option value="">- 없음 -</option>
+                    <option value="부상">부상</option>
+                    <option value="멘탈">멘탈</option>
+                    <option value="상담">상담</option>
+                    <option value="기타">기타</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="noteContent">메모 내용 (필수)</label>
+                <textarea id="noteContent" rows="6" placeholder="학생의 부상 상태, 멘탈 이슈, 상담 내용 등을 자세히 기록하세요..."></textarea>
+            </div>
+            <button type="button" id="saveNoteBtn" class="btn btn-primary" disabled>
+                <i class="fas fa-save"></i> 메모 저장하기
+            </button>
+        </div>
+        
+        <div class="card">
+            <h4 class="card-title">메모 이력</h4>
+            <ul id="noteHistoryList">
+                <p class="no-data" id="noteListPlaceholder">학생을 선택하면 메모 이력을 볼 수 있습니다.</p>
+                </ul>
+        </div>
+    </div>
+</div>
+
+<template id="noteItemTemplate">
+    <li class="note-item">
+        <div class="note-header">
+            <div>
+                <span class="teacher-name">작성자</span>
+                <span class="note-date">날짜</span>
+            </div>
+            <span class="category" style="display: none;">카테고리</span>
+        </div>
+        <div class="note-content">
+            메모 내용이 여기에 표시됩니다.
+        </div>
+    </li>
+</template>
+
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // --- 서버 및 인증 ---
+        const SVR_JUNGSI = 'https://supermax.kr';
+        const LOGIN_PAGE = 'admin_login.html'; // 관리자 로그인 페이지
+
+        // --- HTML 요소 ---
+        const yearSelect = document.getElementById('year-select');
+        const studentSelect = document.getElementById('student-select');
+        const noteCategory = document.getElementById('noteCategory');
+        const noteContent = document.getElementById('noteContent');
+        const saveNoteBtn = document.getElementById('saveNoteBtn');
+        const noteHistoryList = document.getElementById('noteHistoryList');
+        const noteListPlaceholder = document.getElementById('noteListPlaceholder');
+        const noteItemTemplate = document.getElementById('noteItemTemplate');
+
+        let myStudents = []; // 내 담당 학생 목록
+        let teacherList = []; // 지점 선생님(원장) 목록 저장용
+        let currentUser = null; // 로그인한 선생님(원장) 정보
+
+        // --- 인증 확인 ---
+        const getToken = () => localStorage.getItem('jwt_token');
+        const token = getToken();
+        if (!token) { alert('로그인이 필요합니다.'); window.location.href = LOGIN_PAGE; return; }
+        try {
+            const payloadBase64Url = token.split('.')[1];
+            const payloadBase64 = payloadBase64Url.replace(/-/g, '+').replace(/_/g, '/');
+            const decodedString = new TextDecoder().decode(Uint8Array.from(atob(payloadBase64), c => c.charCodeAt(0)));
+            currentUser = JSON.parse(decodedString);
+            console.log("로그인 사용자:", currentUser);
+        } catch (e) {
+            console.error('토큰 처리 실패:', e); alert('인증 정보 오류.'); window.location.href = LOGIN_PAGE; return;
+        }
+
+        // --- API 호출 함수 (인증 포함) ---
+        const apiCall = async (url, options = {}) => {
+            const currentToken = getToken();
+            if (!currentToken) { alert('로그인 세션 만료'); window.location.href = LOGIN_PAGE; throw new Error('로그인 만료'); }
+            options.headers = { ...options.headers, 'Authorization': `Bearer ${currentToken}` };
+            try {
+                const response = await fetch(url, options);
+                if (response.status === 401 || response.status === 403) {
+                     alert('인증 오류 또는 권한 없음'); localStorage.removeItem('jwt_token'); window.location.href = LOGIN_PAGE; throw new Error('인증 오류');
+                }
+                if (!response.ok) {
+                    let errorMsg = `HTTP 오류 ${response.status}`; try { const errorData = await response.json(); errorMsg = errorData.message || errorMsg; } catch (_) {} throw new Error(errorMsg);
+                }
+                // ⭐️ 201 Created 응답도 json()을 파싱하도록 수정 (204가 아닐 수 있음)
+                if (response.status === 204) { return { success: true }; } 
+                return await response.json(); // ⭐️ 200, 201 모두 여기서 처리
+            } catch (error) {
+                console.error('API 호출 실패:', url, error);
+                if (error.message !== '로그인 만료' && error.message !== '인증 오류') { throw new Error(error.message || '네트워크 오류'); } throw error;
+            }
+        };
+
+        // --- Toast Popup 함수 ---
+        const showToast = (message, isSuccess = true) => { const el = document.createElement('div'); el.textContent = message; el.className = `toast-popup ${isSuccess ? 'success' : 'error'}`; document.body.appendChild(el); setTimeout(() => el.classList.add('show'), 10); setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 500); }, 2500); };
+        
+        // --- 날짜 포맷팅 헬퍼 ---
+        const formatDateTime = (isoString) => {
+            if (!isoString) return '';
+            try {
+                const date = new Date(isoString);
+                return date.toLocaleString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }).replace(/\. /g, '-').replace('.', '');
+            } catch (e) { return isoString; }
+        };
+
+        // --- 선생님 목록 로드 함수 (이름 매칭용) ---
+        const loadTeacherList = async () => {
+             if (currentUser && (currentUser.userid === 'sean8320' || currentUser.role === 'admin')) {
+                 try {
+                    const data = await apiCall(`${SVR_JUNGSI}/jungsi/admin/teachers-in-branch`);
+                    if (data.success && data.teachers) {
+                        teacherList = data.teachers;
+                        console.log('선생님 목록 로드 완료 (이름 매칭용):', teacherList);
+                    }
+                } catch (err) {
+                     console.error('선생님 목록 로딩 오류:', err);
+                }
+             } else {
+                 teacherList = [{ userid: currentUser.userid, name: currentUser.name }];
+                 console.log('로그인한 선생님 정보만 사용:', teacherList);
+             }
+        };
+
+        // --- 1. 내 담당 학생 목록 로드 ---
+        const loadMyStudents = async () => {
+            const selectedYear = yearSelect.value;
+            studentSelect.innerHTML = '<option value="">- 학생 로딩 중 -</option>';
+            studentSelect.disabled = true;
+            saveNoteBtn.disabled = true;
+            noteHistoryList.innerHTML = '<p class="no-data" id="noteListPlaceholder">학생을 선택하세요.</p>';
+            try {
+                const data = await apiCall(`${SVR_JUNGSI}/jungsi/teacher/my-students?year=${selectedYear}`);
+                if (data.success && data.students) {
+                    myStudents = data.students;
+                    studentSelect.innerHTML = '<option value="">- 학생 선택 -</option>';
+                    myStudents.forEach(student => {
+                        const option = document.createElement('option');
+                        option.value = student.account_id;
+                        option.textContent = `${student.student_name} (${student.class_name || '반 미배정'})`;
+                        studentSelect.appendChild(option);
+                    });
+                    studentSelect.disabled = false;
+                } else {
+                    studentSelect.innerHTML = '<option value="">- 학생 없음 -</option>';
+                }
+            } catch (err) {
+                console.error('담당 학생 목록 로딩 오류:', err);
+                studentSelect.innerHTML = '<option value="">- 로드 오류 -</option>';
+                showToast(`학생 목록 로드 오류: ${err.message}`, false);
+            }
+        };
+        
+        // --- 2. 학생 선택 시 메모 이력 로드 ---
+        const loadStudentNotes = async () => {
+            const studentId = studentSelect.value;
+            if (!studentId) {
+                noteHistoryList.innerHTML = '<p class="no-data" id="noteListPlaceholder">학생을 선택하면 메모 이력을 볼 수 있습니다.</p>';
+                saveNoteBtn.disabled = true;
+                return;
+            }
+            saveNoteBtn.disabled = false;
+            noteHistoryList.innerHTML = '<p class="loading"><i class="fas fa-spinner fa-spin"></i> 메모 로딩 중...</p>';
+            try {
+                const data = await apiCall(`${SVR_JUNGSI}/jungsi/teacher/notes/${studentId}`);
+                if (data.success && data.notes) {
+                    renderNoteList(data.notes);
+                } else {
+                    noteHistoryList.innerHTML = `<p class="no-data">메모 로드 실패: ${data.message || '오류'}</p>`;
+                }
+            } catch (err) {
+                 console.error('학생 메모 로딩 오류:', err);
+                 noteHistoryList.innerHTML = `<p class="no-data">오류 발생: ${err.message}</p>`;
+            }
+        };
+
+        // --- 3. 메모 이력 렌더링 함수 ---
+        const renderNoteList = (notes) => {
+            noteHistoryList.innerHTML = '';
+            if (notes.length === 0) {
+                noteHistoryList.innerHTML = '<p class="no-data" id="noteListPlaceholder">작성된 메모가 없습니다.</p>';
+                return;
+            }
+            notes.forEach(note => {
+                const noteCard = createNoteCard(note);
+                noteHistoryList.appendChild(noteCard);
+            });
+        };
+        
+        // --- 3-1. 개별 메모 카드 생성 함수 ---
+        const createNoteCard = (note) => {
+             const template = document.getElementById('noteItemTemplate');
+             const item = template.content.cloneNode(true).firstElementChild;
+             const teacher = teacherList.find(t => t.userid === note.teacher_userid);
+             const teacherName = teacher ? teacher.name : (note.teacher_userid || '알 수 없음');
+             item.querySelector('.teacher-name').textContent = teacherName;
+             item.querySelector('.note-date').textContent = formatDateTime(note.note_date);
+             item.querySelector('.note-content').textContent = note.note_content || '(내용 없음)';
+             const categorySpan = item.querySelector('.category');
+             if (note.category) {
+                 categorySpan.textContent = note.category;
+                 categorySpan.style.display = 'inline-block';
+                 if (note.category === '부상') categorySpan.style.backgroundColor = 'var(--danger-color)';
+                 else if (note.category === '멘탈') categorySpan.style.backgroundColor = 'var(--info)';
+                 else if (note.category === '상담') categorySpan.style.backgroundColor = 'var(--success-color)';
+             }
+             return item;
+        };
+
+        // --- ⭐️ 4. 새 메모 저장 함수 (수정됨) ---
+        const saveNewNote = async () => {
+            const studentId = studentSelect.value;
+            const content = noteContent.value.trim();
+            const category = noteCategory.value;
+            if (!studentId) {
+                showToast('메모를 저장할 학생을 선택하세요.', false);
+                return;
+            }
+            if (!content) {
+                 showToast('메모 내용을 입력하세요.', false);
+                 noteContent.focus();
+                 return;
+            }
+            saveNoteBtn.disabled = true;
+            saveNoteBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 저장 중...';
+            try {
+                // API 호출 (POST /jungsi/teacher/notes/add)
+                const data = await apiCall(`${SVR_JUNGSI}/jungsi/teacher/notes/add`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        student_account_id: parseInt(studentId),
+                        note_content: content,
+                        category: category || null
+                    })
+                });
+
+                // ⭐️⭐️⭐️ 수정된 성공 로직 ⭐️⭐️⭐️
+                // API가 { success: true, message: "...", insertedNote: {...} }를 반환한다고 가정
+                if (data.success && data.insertedNote) {
+                    // 1. 성공 토스트 (API가 보낸 메시지 사용)
+                    showToast(`✅ ${data.message || '메모가 저장되었습니다.'}`, true);
+                    
+                    // 2. 새 메모 카드 생성
+                    const newNoteCard = createNoteCard(data.insertedNote);
+                    
+                    // 3. '작성된 메모 없음' 메시지 제거
+                    const placeholder = document.getElementById('noteListPlaceholder');
+                    if (placeholder) placeholder.style.display = 'none';
+                    
+                    // 4. 목록 맨 위에 새 메모 추가 (새로고침)
+                    noteHistoryList.prepend(newNoteCard);
+                    
+                    // 5. 썼던 내용 지우기
+                    noteContent.value = '';
+                    noteCategory.value = '';
+                } else {
+                    // API가 success: false를 반환한 경우
+                    showToast(`❌ 저장 실패: ${data.message || '알 수 없는 오류'}`, false);
+                }
+            } catch (err) {
+                 // fetch나 apiCall 함수 자체에서 에러가 난 경우
+                 console.error('새 메모 저장 오류:', err);
+                 showToast(`❌ 저장 중 오류 발생: ${err.message}`, false);
+            } finally {
+                 saveNoteBtn.disabled = false;
+                 saveNoteBtn.innerHTML = '<i class="fas fa-save"></i> 메모 저장하기';
+            }
+        };
+
+        // --- 5. 이벤트 리스너 연결 ---
+        yearSelect.addEventListener('change', loadMyStudents);
+        studentSelect.addEventListener('change', loadStudentNotes);
+        saveNoteBtn.addEventListener('click', saveNewNote);
+
+        // --- 6. 초기 실행 ---
+        const initializePage = async () => {
+            await loadTeacherList(); // 1. 선생님 목록 먼저 로드
+            await loadMyStudents(); // 2. 학생 목록 로드
+        };
+        initializePage();
+    });
+</script>
+
+</body>
+</html>
