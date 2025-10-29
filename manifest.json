@@ -1,0 +1,22 @@
+{
+  "name": "맥스",
+  "short_name": "IMAX",
+  "description": "맥스체대입시 학생 관리용",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#2563eb",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ]
+}

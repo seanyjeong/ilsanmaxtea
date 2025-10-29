@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <title>학생 특이사항 메모 (선생님)</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #2563eb; --primary-dark:#1d4ed8;
+            --light-bg: #f8fafc; --card-bg: #ffffff;
+            --border-color: #e2e8f0; --text-primary:#1e293b; --text-secondary:#475569;
+            --danger-color: #ef4444; --success-color: #10b981; --warning-color: #f59e0b;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            /* ⭐️ 부상 척도용 노란색 추가 */
+            --yellow-color: #facc15; 
+        }
+        * { box-sizing: border-box; }
+        body { font-family: 'Pretendard', sans-serif; background: var(--light-bg); padding: 20px; margin: 0; line-height: 1.5; color: var(--text-primary); }
+        .container { max-width: 900px; margin: 0 auto; }
+
+        /* ---------- Header & Controls ---------- */
+        .header {
+            display: flex; justify-content: space-between; align-items: center;
+            gap: 12px; flex-wrap: wrap;
+            background: var(--card-bg); padding: 16px 18px; border-radius: 12px; box-shadow: var(--shadow);
+            margin-bottom: 20px;
+        }
+        .header h1 { font-size: 1.6rem; color: var(--primary-color); margin: 0; display: flex; align-items: center; gap: 10px; }
+        .header-controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        .chip { display: inline-flex; align-items: center; gap: 6px; background: var(--light-bg); padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border-color); }
+        .chip label { font-size: .9rem; color: var(--text-secondary); white-space: nowrap; }
+        select { padding: 8px 10px; border: 1px solid var(--border-color); border-radius: 6px; background: #fff; font-size: .95rem; min-width: 150px; }
+        .btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 14px; border: none; border-radius: 8px; font-weight: 600; font-size: .9rem; cursor: pointer; transition: .2s; }
+        .btn-primary { background: var(--primary-color); color: #fff; }
+        .btn-primary:hover { background: var(--primary-dark); }
+        .btn-primary:disabled { background: #9ca3af; cursor: not-allowed; opacity: 0.7; }
+
+        /* ---------- Card ---------- */
+        .card { background: var(--card-bg); border-radius: 12px; box-shadow: var(--shadow); padding: 20px; margin-bottom: 20px; }
+        .card-title { font-size: 1.3rem; font-weight: 600; margin: 0 0 15px; padding-bottom: 10px; border-bottom: 1px solid var(--border-color); }
+        
+        /* ---------- 2단 레이아웃 ---------- */
+        .memo-layout { display: grid; grid-template-columns: 1fr; gap: 20px; }
+        @media (min-width: 768px) { .memo-layout { grid-template-columns: 1fr 1fr; } }
+        
+        /* 폼 요소 */
+        .form-group { display: flex; flex-direction: column; margin-bottom: 15px; }
+        .form-group label { font-size: 0.9rem; font-weight: 600; margin-bottom: 6px; color: var(--text-secondary); }
+        .form-group textarea {
+            width: 100%; min-height: 120px; padding: 10px; font-size: 0.95rem;
+            border: 1px solid var(--border-color); border-radius: 8px; font-family: 'Pretendard', sans-serif;
+            resize: vertical;
+        }
+        .form-group select { width: 100%; }
+
+        /* ▼▼▼ 부상 척도 스타일 (폼 내부) ▼▼▼ */
+        .injury-scale-group {
+            display: none; /* ⭐️ 평소엔 숨김 */
+            background-color: #fffbe6;
+            border: 1px solid var(--warning-color);
+            border-radius: 8px;
+            padding: 10px 15px;
+        }
+        .injury-scale-group label { color: #b45309; }
+        .injury-scale-options {
+            display: flex; justify-content: space-around; margin-top: 5px;
+        }
+        .injury-scale-options label {
+            display: flex; align-items: center; gap: 5px;
+            font-size: 0.9rem; color: var(--text-primary); cursor: pointer;
+        }
+        .injury-scale-options input[type="radio"] {
+            accent-color: var(--primary-color);
+        }
+        /* ▲▲▲ 부상 척도 스타일 (폼 내부) ▲▲▲ */
+        
+        /* 메모 이력 (우측) */
+        .note-history-list { list-style: none; padding: 0; margin: 0; max-height: 500px; overflow-y: auto; }
+        .note-item {
+            background: #f8fafc; border: 1px solid var(--border-color);
+            border-radius: 8px; padding: 12px; margin-bottom: 10px;
+            position: relative; /* ⭐️ 삭제 버튼용 */
+        }
+        .note-header {
+            display: flex; justify-content: space-between; align-items: center;
+            font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 8px;
+            padding-bottom: 8px; border-bottom: 1px dashed var(--border-color);
+            padding-right: 30px; 
+        }
+        .note-header .teacher-name { font-weight: 600; color: var(--text-primary); }
+        .note-header .category {
+            background: var(--warning-color); color: white; font-weight: 600;
+            font-size: 0.75rem; padding: 2px 6px; border-radius: 4px;
+        }
+
+        /* ▼▼▼ ⭐️ (수정) 부상 척도별 뱃지 색상 (FM 스타일) ▼▼▼ */
+        .note-header .category.injury-level-1 { 
+            background-color: var(--yellow-color); 
+            color: var(--text-primary); /* 노랑 바탕엔 검은 글씨 */
+        } /* (경미: 노랑) */
+        .note-header .category.injury-level-2 { 
+            background-color: var(--warning-color); 
+        } /* (중증: 주황) */
+        .note-header .category.injury-level-3 { 
+            background-color: var(--danger-color); 
+        } /* (심각: 빨강) */
+        /* ▲▲▲ ⭐️ (수정) 부상 척도별 뱃지 색상 ▲▲▲ */
+        
+        /* ▼▼▼ (삭제) 기존 부상 척도 아이콘 스타일 ▼▼▼ */
+        /* .injury-level-display { ... } 등 관련 스타일 제거됨 */
+        /* ▲▲▲ (삭제) 기존 부상 척도 아이콘 스타일 ▲▲▲ */
+
+        .note-content { 
+            font-size: 0.95rem; line-height: 1.6; white-space: pre-wrap; word-break: break-word; 
+            padding-right: 30px; 
+        }
+        
+        /* 삭제 버튼 스타일 */
+        .delete-note-btn {
+            position: absolute;
+            top: 10px; right: 10px;
+            background: none; border: none;
+            color: var(--danger-color);
+            font-size: 1rem; cursor: pointer;
+            opacity: 0.3; transition: opacity 0.2s;
+            padding: 5px; z-index: 2;
+        }
+        .note-item:hover .delete-note-btn { opacity: 1; }
+        .delete-note-btn:hover { color: #b91c1c; }
+        .delete-note-btn:disabled { opacity: 0.2; cursor: not-allowed; }
+        
+        /* 로딩/데이터 없음 */
+        .loading, .no-data { text-align: center; padding: 30px; color: var(--text-secondary); }
+
+        /* --- Toast Popup --- */
+        .toast-popup {
+            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+            background-color: rgba(0,0,0,0.8); color: white; padding: 10px 18px; border-radius: 20px;
+            font-size: 0.9rem; z-index: 1002; opacity: 0; transition: opacity 0.3s, bottom 0.3s;
+            pointer-events: none;
+        }
+        .toast-popup.show { opacity: 1; bottom: 40px; }
+        .toast-popup.success { background-color: var(--success-color); }
+        .toast-popup.error { background-color: var(--danger-color); }
+        
+        /* --- 모바일 반응형 --- */
+        @media (max-width: 767px) {
+            body { padding: 10px; }
+            .header { flex-direction: column; align-items: stretch; padding: 15px; }
+            .header h1 { font-size: 1.4rem; }
+            .header-controls { flex-direction: column; align-items: stretch; }
+            .chip { justify-content: space-between; }
+            .btn { justify-content: center; }
+            .card { padding: 15px; }
+            .memo-layout { grid-template-columns: 1fr; }
+            .note-history-list { max-height: 40vh; }
+            .delete-note-btn { opacity: 0.7; }
+            .injury-scale-options { flex-direction: column; align-items: flex-start; gap: 5px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h1><i class="fas fa-file-medical"></i> 학생 특이사항 메모</h1>
+        <div class="header-controls">
+            <div class="chip">
+                <label for="year-select"><i class="fas fa-calendar-alt"></i> 학년도</label>
+                <select id="year-select">
+                    <option value="2026">2026</option>
+                    <option value="2027">2027</option>
+                    <option value="2028">2028</option>
+                </select>
+            </div>
+             <div class="chip">
+                <label for="student-select"><i class="fas fa-user-graduate"></i> 학생</label>
+                <select id="student-select">
+                    <option value="">- 학년도 선택 -</option>
+                </select>
+            </div>
+        </div>
+    </div>
+    
+    <div class="memo-layout">
+        <div class="card">
+            <h4 class="card-title">새 메모 작성</h4>
+            <div class="form-group">
+                <label for="noteCategory">카테고리 (선택)</label>
+                <select id="noteCategory">
+                    <option value="">- 없음 -</option>
+                    <option value="부상">부상</option>
+                    <option value="멘탈">멘탈</option>
+                    <option value="상담">상담</option>
+                    <option value="기타">기타</option>
+                </select>
+            </div>
+            
+            <div class="form-group injury-scale-group" id="injuryScaleGroup">
+                <label for="injuryLevel">부상 척도 (1: 경미 ~ 3: 심각)</label>
+                <div class="injury-scale-options">
+                    <label>
+                        <input type="radio" name="injury_level" value="1">
+                        <span class="injury-level-1" style="color:var(--yellow-color); font-weight:600;"><i class="fas fa-check-circle"></i> 1 (경미)</span>
+                    </label>
+                    <label>
+                        <input type="radio" name="injury_level" value="2">
+                        <span class="injury-level-2" style="color:var(--warning-color); font-weight:600;"><i class="fas fa-exclamation-triangle"></i> 2 (중증)</span>
+                    </label>
+                    <label>
+                        <input type="radio" name="injury_level" value="3">
+                        <span class="injury-level-3" style="color:var(--danger-color); font-weight:600;"><i class="fas fa-times-circle"></i> 3 (심각)</span>
+                    </label>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="noteContent">메모 내용 (필수)</label>
+                <textarea id="noteContent" rows="6" placeholder="학생의 부상 상태, 멘탈 이슈, 상담 내용 등을 자세히 기록하세요..."></textarea>
+            </div>
+            <button type="button" id="saveNoteBtn" class="btn btn-primary" disabled>
+                <i class="fas fa-save"></i> 메모 저장하기
+            </button>
+        </div>
+        
+        <div class="card">
+            <h4 class="card-title">메모 이력</h4>
+            <ul id="noteHistoryList">
+                <p class="no-data" id="noteListPlaceholder">학생을 선택하면 메모 이력을 볼 수 있습니다.</p>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<template id="noteItemTemplate">
+    <li class="note-item" data-note-id="{{note_id}}">
+        <div class="note-header">
+            <div>
+                <span class="teacher-name">작성자</span>
+                <span class="note-date">날짜</span>
+                </div>
+            <span class="category" style="display: none;">카테고리</span>
+        </div>
+        <div class="note-content">
+            메모 내용이 여기에 표시됩니다.
+        </div>
+    </li>
+</template>
+
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // --- 서버 및 인증 ---
+        const SVR_JUNGSI = 'https://supermax.kr';
+        const LOGIN_PAGE = 'admin_login.html';
+
+        // --- HTML 요소 ---
+        const yearSelect = document.getElementById('year-select');
+        const studentSelect = document.getElementById('student-select');
+        const noteCategory = document.getElementById('noteCategory');
+        const injuryScaleGroup = document.getElementById('injuryScaleGroup');
+        const noteContent = document.getElementById('noteContent');
+        const saveNoteBtn = document.getElementById('saveNoteBtn');
+        const noteHistoryList = document.getElementById('noteHistoryList');
+        const noteListPlaceholder = document.getElementById('noteListPlaceholder');
+        const noteItemTemplate = document.getElementById('noteItemTemplate');
+
+        let studentListCache = [];
+        let teacherList = [];
+        let currentUser = null;
+        let isManagement = false;
+
+        // --- 인증 확인 및 권한 설정 ---
+        const getToken = () => localStorage.getItem('jwt_token');
+        const token = getToken();
+        if (!token) { alert('로그인이 필요합니다.'); window.location.href = LOGIN_PAGE; return; }
+        try {
+            const payloadBase64Url = token.split('.')[1];
+            const payloadBase64 = payloadBase64Url.replace(/-/g, '+').replace(/_/g, '/');
+            const decodedString = new TextDecoder().decode(Uint8Array.from(atob(payloadBase64), c => c.charCodeAt(0)));
+            currentUser = JSON.parse(decodedString);
+            console.log("로그인 사용자:", currentUser);
+
+            isManagement = currentUser && (
+                (currentUser.position && ['원장', '부원장', '팀장'].includes(currentUser.position)) ||
+                currentUser.role === 'admin'
+            );
+            console.log("관리 권한 여부:", isManagement);
+
+        } catch (e) {
+            console.error('토큰 처리 실패:', e); alert('인증 정보 오류.'); window.location.href = LOGIN_PAGE; return;
+        }
+
+        // --- API 호출 함수 (인증 포함) ---
+        const apiCall = async (url, options = {}) => {
+            const currentToken = getToken();
+            if (!currentToken) { alert('로그인 세션 만료'); window.location.href = LOGIN_PAGE; throw new Error('로그인 만료'); }
+            options.headers = { ...options.headers, 'Authorization': `Bearer ${currentToken}` };
+            try {
+                const response = await fetch(url, options);
+                if (response.status === 401) {
+                     alert('로그인 세션이 만료되었습니다. 다시 로그인해주세요.');
+                     localStorage.removeItem('jwt_token'); window.location.href = LOGIN_PAGE; throw new Error('로그인 만료');
+                } else if (response.status === 403) {
+                     alert('인증 오류 또는 권한이 없습니다.');
+                     throw new Error('권한 없음');
+                }
+                if (!response.ok) {
+                    let errorMsg = `HTTP 오류 ${response.status}`; try { const errorData = await response.json(); errorMsg = errorData.message || errorMsg; } catch (_) {} throw new Error(errorMsg);
+                }
+                if (response.status === 204) { return { success: true }; }
+                return await response.json();
+            } catch (error) {
+                console.error('API 호출 실패:', url, error);
+                if (error.message !== '로그인 만료' && error.message !== '권한 없음') {
+                    showToast(`네트워크 또는 서버 오류: ${error.message}`, false);
+                    throw new Error(error.message || '네트워크 오류');
+                }
+                throw error;
+            }
+        };
+
+        // --- Toast Popup 함수 ---
+        const showToast = (message, isSuccess = true) => {
+             const el = document.createElement('div'); el.textContent = message; el.className = `toast-popup ${isSuccess ? 'success' : 'error'}`; document.body.appendChild(el); setTimeout(() => el.classList.add('show'), 10); setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 500); }, 2500);
+        };
+
+        // --- 날짜 포맷팅 헬퍼 ---
+        const formatDateTime = (isoString) => {
+            if (!isoString) return '';
+            try {
+                const date = new Date(isoString);
+                return date.toLocaleString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }).replace(/\. /g, '-').replace('.', '');
+            } catch (e) { return isoString; }
+        };
+
+        // --- 선생님 목록 로드 함수 (이름 매칭용) ---
+        const loadTeacherList = async () => {
+             if (isManagement || currentUser.userid === 'sean8320') {
+                 try {
+                    const data = await apiCall(`${SVR_JUNGSI}/jungsi/admin/teachers-in-branch`);
+                    if (data.success && data.teachers) {
+                        teacherList = data.teachers;
+                    }
+                } catch (err) {
+                     console.error('선생님 목록 로딩 오류 (무시함):', err);
+                }
+             }
+             if (!teacherList.some(t => t.userid === currentUser.userid)) {
+                 teacherList.push({ userid: currentUser.userid, name: currentUser.name });
+             }
+             const uniqueTeacherMap = new Map(teacherList.map(t => [t.userid, t]));
+             teacherList = Array.from(uniqueTeacherMap.values());
+             console.log('최종 선생님 목록 (이름 매칭용):', teacherList);
+        };
+
+        // --- 1. 학생 목록 로드 (관리자/일반 분기 적용됨) ---
+        const loadStudentList = async () => {
+            const selectedYear = yearSelect.value;
+            studentSelect.innerHTML = '<option value="">- 학생 로딩 중 -</option>';
+            studentSelect.disabled = true;
+            saveNoteBtn.disabled = true;
+            noteHistoryList.innerHTML = '<p class="no-data" id="noteListPlaceholder">학생을 선택하세요.</p>';
+
+            try {
+                const data = await apiCall(`${SVR_JUNGSI}/jungsi/teacher/my-students?year=${selectedYear}`);
+
+                if (data.success && data.students) {
+                    studentListCache = data.students;
+                    studentSelect.innerHTML = '<option value="">- 학생 선택 -</option>';
+                    studentListCache.forEach(student => {
+                        const option = document.createElement('option');
+                        option.value = student.account_id;
+                        option.textContent = `${student.student_name} (${student.class_name || '반 미배정'})`;
+                        studentSelect.appendChild(option);
+                    });
+                    studentSelect.disabled = false;
+                } else {
+                    studentSelect.innerHTML = '<option value="">- 학생 없음 -</option>';
+                }
+            } catch (err) {
+                console.error('학생 목록 로딩 오류:', err);
+                 if (err.message !== '권한 없음' && err.message !== '로그인 만료') {
+                    studentSelect.innerHTML = '<option value="">- 로드 오류 -</option>';
+                    showToast(`학생 목록 로드 오류: ${err.message}`, false);
+                 }
+            }
+        };
+
+        // --- 2. 학생 선택 시 메모 이력 로드 ---
+        const loadStudentNotes = async () => {
+            const studentId = studentSelect.value;
+            if (!studentId) {
+                noteHistoryList.innerHTML = '<p class="no-data" id="noteListPlaceholder">학생을 선택하면 메모 이력을 볼 수 있습니다.</p>';
+                saveNoteBtn.disabled = true;
+                return;
+            }
+            saveNoteBtn.disabled = false;
+            noteHistoryList.innerHTML = '<p class="loading"><i class="fas fa-spinner fa-spin"></i> 메모 로딩 중...</p>';
+            try {
+                const data = await apiCall(`${SVR_JUNGSI}/jungsi/teacher/notes/${studentId}`);
+                if (data.success && data.notes) {
+                    renderNoteList(data.notes);
+                } else {
+                    noteHistoryList.innerHTML = `<p class="no-data">메모 로드 실패: ${data.message || '오류'}</p>`;
+                }
+            } catch (err) {
+                 console.error('학생 메모 로딩 오류:', err);
+                 if (err.message !== '권한 없음' && err.message !== '로그인 만료') {
+                    noteHistoryList.innerHTML = `<p class="no-data">오류 발생: ${err.message}</p>`;
+                 }
+            }
+        };
+
+        // --- 3. 메모 이력 렌더링 함수 ---
+        const renderNoteList = (notes) => {
+            noteHistoryList.innerHTML = '';
+            if (notes.length === 0) {
+                noteHistoryList.innerHTML = '<p class="no-data" id="noteListPlaceholder">작성된 메모가 없습니다.</p>';
+                return;
+            }
+            notes.forEach(note => {
+                const noteCard = createNoteCard(note);
+                noteHistoryList.appendChild(noteCard);
+            });
+        };
+
+        // --- 3-1. 개별 메모 카드 생성 함수 (⭐️ 부상 척도/삭제 버튼 수정) ---
+        const createNoteCard = (note) => {
+             const template = document.getElementById('noteItemTemplate');
+             const item = template.content.cloneNode(true).firstElementChild;
+             item.dataset.noteId = note.note_id;
+
+             let teacherName = note.teacher_userid || '알 수 없음';
+             const teacher = teacherList.find(t => t.userid === note.teacher_userid);
+             if (teacher && teacher.name) {
+                 teacherName = teacher.name;
+             }
+             item.querySelector('.teacher-name').textContent = teacherName;
+
+             item.querySelector('.note-date').textContent = formatDateTime(note.note_date);
+             item.querySelector('.note-content').textContent = note.note_content || '(내용 없음)';
+
+             // ▼▼▼ 카테고리 및 부상 척도 색상 표시 ▼▼▼
+             const categorySpan = item.querySelector('.category');
+             if (note.category) {
+                 categorySpan.textContent = note.category;
+                 categorySpan.style.display = 'inline-block';
+
+                 if (note.category === '부상') {
+                     const level = parseInt(note.injury_level, 10);
+                     if (level === 1) categorySpan.classList.add('injury-level-1');
+                     else if (level === 2) categorySpan.classList.add('injury-level-2');
+                     else if (level === 3) categorySpan.classList.add('injury-level-3');
+                     else categorySpan.style.backgroundColor = 'var(--danger-color)';
+                 }
+                 else if (note.category === '멘탈') categorySpan.style.backgroundColor = '#60a5fa'; // 파랑
+                 else if (note.category === '상담') categorySpan.style.backgroundColor = 'var(--success-color)'; // 초록
+                 else categorySpan.style.backgroundColor = 'var(--warning-color)'; // 기타 (주황)
+             }
+             // ▲▲▲ 카테고리 표시 로직 ▲▲▲
+
+             // ▼▼▼ 삭제 버튼 동적 추가 및 이벤트 리스너 ▼▼▼
+             if (isManagement || currentUser.userid === note.teacher_userid) {
+                 const deleteBtn = document.createElement('button');
+                 deleteBtn.type = 'button';
+                 deleteBtn.className = 'delete-note-btn';
+                 deleteBtn.title = '메모 삭제';
+                 deleteBtn.innerHTML = '<i class="fas fa-times-circle"></i>';
+
+                 // ⭐️ (수정) deleteNote 함수에 카테고리 정보(note.category) 전달
+                 deleteBtn.addEventListener('click', (e) => {
+                     e.stopPropagation();
+                     deleteNote(note.note_id, item, note.category); // ⭐️ note.category 추가
+                 });
+                 item.appendChild(deleteBtn);
+             }
+             // ▲▲▲ 삭제 버튼 추가 및 이벤트 리스너 ▲▲▲
+
+             return item;
+        };
+
+        // --- 4. 새 메모 저장 함수 (⭐️ 부상 척도 값 전송 추가) ---
+        const saveNewNote = async () => {
+            const studentId = studentSelect.value;
+            const content = noteContent.value.trim();
+            const category = noteCategory.value;
+
+            let injuryLevel = null;
+            if (category === '부상') {
+                const checkedRadio = document.querySelector('input[name="injury_level"]:checked');
+                if (checkedRadio) {
+                    injuryLevel = checkedRadio.value;
+                }
+            }
+
+            if (!studentId) { showToast('메모를 저장할 학생을 선택하세요.', false); return; }
+            if (!content) { showToast('메모 내용을 입력하세요.', false); noteContent.focus(); return; }
+
+            saveNoteBtn.disabled = true;
+            saveNoteBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 저장 중...';
+            try {
+                const data = await apiCall(`${SVR_JUNGSI}/jungsi/teacher/notes/add`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        student_account_id: parseInt(studentId),
+                        note_content: content,
+                        category: category || null,
+                        injury_level: injuryLevel
+                    })
+                });
+                if (data.success && data.insertedNote) {
+                    showToast(`✅ ${data.message || '메모가 저장되었습니다.'}`, true);
+
+                    if (data.insertedNote.teacher_userid === currentUser.userid) {
+                         const me = teacherList.find(t => t.userid === currentUser.userid);
+                         data.insertedNote.teacher_name = me ? me.name : currentUser.name;
+                    }
+
+                    const newNoteCard = createNoteCard(data.insertedNote);
+                    const placeholder = document.getElementById('noteListPlaceholder');
+                    if (placeholder) placeholder.style.display = 'none';
+                    noteHistoryList.prepend(newNoteCard);
+
+                    noteContent.value = '';
+                    noteCategory.value = '';
+                    noteCategory.dispatchEvent(new Event('change'));
+                } else {
+                    showToast(`❌ 저장 실패: ${data.message || '알 수 없는 오류'}`, false);
+                }
+            } catch (err) {
+                 if (err.message !== '권한 없음' && err.message !== '로그인 만료') {
+                    showToast(`❌ 저장 중 오류 발생: ${err.message}`, false);
+                 }
+            } finally {
+                 saveNoteBtn.disabled = false;
+                 saveNoteBtn.innerHTML = '<i class="fas fa-save"></i> 메모 저장하기';
+            }
+        };
+
+        // --- 5. 메모 삭제 함수 ---
+        // ⭐️ (수정) category 파라미터 추가 및 confirm 메시지 분기
+        const deleteNote = async (noteId, noteElement, category) => { // ⭐️ category 추가
+            if (!noteId || !noteElement) return;
+            const noteText = noteElement.querySelector('.note-content').textContent.substring(0, 20);
+
+            // ⭐️ confirm 메시지 조건부 생성
+            let confirmMsg = `[${noteText}...] 메모를 정말 삭제하시겠습니까?`;
+            if (category === '부상') {
+                confirmMsg += ' (부상 이력이 사라질 수 있습니다)'; // '부상'일 때만 경고 추가
+            }
+
+            // ⭐️ 수정된 메시지로 confirm 호출
+            if (!confirm(confirmMsg)) {
+                return;
+            }
+
+            const deleteBtn = noteElement.querySelector('.delete-note-btn');
+            if (deleteBtn) deleteBtn.disabled = true;
+
+            try {
+                const data = await apiCall(`${SVR_JUNGSI}/jungsi/teacher/notes/delete/${noteId}`, {
+                    method: 'DELETE'
+                });
+
+                if (data.success) {
+                    showToast('🗑️ 메모가 삭제되었습니다.', true);
+                    noteElement.style.opacity = 0;
+                    setTimeout(() => {
+                        noteElement.remove();
+                        if (noteHistoryList.querySelectorAll('li.note-item').length === 0) {
+                             noteHistoryList.innerHTML = '<p class="no-data" id="noteListPlaceholder">작성된 메모가 없습니다.</p>';
+                        }
+                    }, 300);
+                } else {
+                     showToast(`❌ 삭제 실패: ${data.message || '알 수 없는 오류'}`, false);
+                     if (deleteBtn) deleteBtn.disabled = false;
+                }
+            } catch (err) {
+                 console.error('메모 삭제 오류:', err);
+                 if (err.message !== '권한 없음' && err.message !== '로그인 만료') {
+                    showToast(`❌ 삭제 중 오류 발생: ${err.message}`, false);
+                 }
+                 if (deleteBtn) deleteBtn.disabled = false;
+            }
+        };
+
+        // --- 6. 이벤트 리스너 연결 ---
+        yearSelect.addEventListener('change', loadStudentList);
+        studentSelect.addEventListener('change', () => {
+            loadStudentNotes();
+            saveNoteBtn.disabled = !studentSelect.value;
+        });
+        saveNoteBtn.addEventListener('click', saveNewNote);
+
+        noteCategory.addEventListener('change', () => {
+            if (noteCategory.value === '부상') {
+                injuryScaleGroup.style.display = 'block';
+            } else {
+                injuryScaleGroup.style.display = 'none';
+                document.querySelectorAll('input[name="injury_level"]').forEach(radio => {
+                    radio.checked = false;
+                });
+            }
+        });
+
+        // --- 7. 초기 실행 ---
+        const initializePage = async () => {
+            await loadTeacherList();
+            await loadStudentList();
+        };
+        initializePage();
+    });
+</script>

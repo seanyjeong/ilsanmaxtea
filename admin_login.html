@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+<title>관리자/원장 로그인</title>
+
+<meta name="theme-color" content="#2563eb">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png"> <style>
+/* student_login.html 스타일과 거의 동일 */
+body { font-family:sans-serif; max-width:360px; margin:60px auto; text-align:center; background-color: #f8fafc; color: #1e293b;}
+h2 { color: #2563eb; margin-bottom: 10px; }
+input { width:100%; padding:12px; font-size:1rem; margin:8px 0; box-sizing:border-box; border: 1px solid #e2e8f0; border-radius: 6px; }
+input:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1); }
+button { width:100%; padding:12px; font-size:1rem; font-weight:600; background:#2563eb; color:#fff; border:0; border-radius:6px; cursor:pointer; margin-top:12px; transition: background-color 0.2s; }
+button:hover { background: #1d4ed8; }
+button:disabled { background: #9ca3af; cursor: not-allowed; }
+.status { min-height:20px; font-size:.9rem; color:#ef4444; margin-top:12px; white-space:pre-line; }
+.ok { color:#10b981; }
+.note { font-size:.8rem; color:#64748b; line-height:1.4; margin-top:8px; margin-bottom: 20px; }
+</style>
+</head>
+<body>
+
+<h2>관리자/원장 로그인</h2>
+<p class="note">승인된 관리자 또는 원장 계정으로 로그인하세요.</p>
+
+<input id="idInput" placeholder="아이디" />
+<input id="pwInput" type="password" placeholder="비밀번호" />
+<button id="loginBtn">로그인</button>
+
+<div id="loginStatus" class="status"></div>
+
+<script>
+const SVR = 'https://supermax.kr';
+const ADMIN_DASHBOARD_PAGE = 'index.html'; // 로그인 성공 시 이동할 페이지
+
+document.getElementById('loginBtn').addEventListener('click', async () => {
+  const userid = document.getElementById('idInput').value.trim();
+  const password = document.getElementById('pwInput').value.trim();
+  const statusEl = document.getElementById('loginStatus');
+  const loginBtn = document.getElementById('loginBtn');
+
+  if (!userid || !password) {
+    statusEl.textContent = '아이디와 비밀번호를 모두 입력해주세요.';
+    return;
+  }
+
+  loginBtn.disabled = true; // 버튼 비활성화
+  statusEl.textContent = '로그인 시도 중...';
+  statusEl.className = 'status';
+
+  try {
+    // ⭐️ 관리자/원장 로그인 API 호출 (/26susi_owner/login 사용)
+    const res = await fetch(`${SVR}/26susi_owner/login`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ userid, password })
+    });
+    const data = await res.json();
+
+    if (data.success && data.token) {
+      // ⭐️ 토큰 저장 (기존과 동일하게 'jwt_token' 사용)
+      localStorage.setItem('jwt_token', data.token);
+      statusEl.textContent = '로그인 성공!';
+      statusEl.className = 'status ok';
+
+      // ⭐️ 관리자 대시보드 페이지로 이동
+      location.href = ADMIN_DASHBOARD_PAGE;
+
+    } else {
+      // 로그인 실패
+      statusEl.textContent = data.message || '아이디 또는 비밀번호가 일치하지 않습니다.';
+      statusEl.className = 'status';
+      loginBtn.disabled = false; // 버튼 다시 활성화
+    }
+  } catch (err) {
+      console.error("로그인 API 호출 오류:", err);
+      statusEl.textContent = '로그인 중 오류가 발생했습니다. 네트워크 연결을 확인해주세요.';
+      statusEl.className = 'status';
+      loginBtn.disabled = false; // 버튼 다시 활성화
+  }
+});
+
+// 엔터 키로 로그인 시도 (선택 사항)
+document.getElementById('pwInput').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+        document.getElementById('loginBtn').click();
+    }
+});
+</script>
+
+</body>
+</html>

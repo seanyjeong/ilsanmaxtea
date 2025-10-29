@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <title>학생 기록 열람 (선생님/관리자)</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary-color: #2563eb; --primary-dark:#1d4ed8;
+            --light-bg: #f8fafc; --card-bg: #ffffff;
+            --border-color: #e2e8f0; --text-primary:#1e293b; --text-secondary:#475569;
+            --danger-color: #ef4444; --success-color: #10b981; --warning-color: #f59e0b;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        * { box-sizing: border-box; }
+        body { font-family: 'Pretendard', sans-serif; background: var(--light-bg); padding: 20px; margin: 0; line-height: 1.5; color: var(--text-primary); }
+        .container { max-width: 1100px; margin: 0 auto; } /* 컨테이너 살짝 넓힘 */
+
+        /* ---------- Header & Controls ---------- */
+        .header {
+            display: flex; justify-content: space-between; align-items: center;
+            gap: 12px; flex-wrap: wrap;
+            background: var(--card-bg); padding: 16px 18px; border-radius: 12px; box-shadow: var(--shadow);
+            margin-bottom: 20px;
+        }
+        .header h1 { font-size: 1.6rem; color: var(--primary-color); margin: 0; display: flex; align-items: center; gap: 10px; }
+        .header-controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        .chip { display: inline-flex; align-items: center; gap: 6px; background: var(--light-bg); padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border-color); }
+        .chip label { font-size: .9rem; color: var(--text-secondary); white-space: nowrap; }
+        select { padding: 8px 10px; border: 1px solid var(--border-color); border-radius: 6px; background: #fff; font-size: .95rem; min-width: 150px; }
+
+        /* ---------- Student List ---------- */
+        .student-list-container {
+            background: var(--card-bg); border-radius: 12px; box-shadow: var(--shadow); padding: 20px;
+        }
+        .student-list { list-style: none; padding: 0; margin: 0; max-height: 60vh; overflow-y: auto; }
+        .student-item {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 12px 10px; border-bottom: 1px solid var(--border-color);
+            cursor: pointer; transition: background-color 0.2s;
+        }
+        .student-item:hover { background-color: #f1f5f9; }
+        .student-item:last-child { border-bottom: none; }
+        .student-item-info { display: flex; align-items: center; gap: 10px; }
+        .student-name { font-weight: 600; }
+        .student-details { font-size: 0.85rem; color: var(--text-secondary); }
+        .student-item i { color: var(--primary-color); }
+
+        /* 로딩/데이터 없음 */
+        .loading, .no-data { text-align: center; padding: 30px; color: var(--text-secondary); }
+
+        /* ---------- 모달 스타일 (기존과 유사) ---------- */
+        .modal-overlay { /* ... */
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0,0,0,0.5); z-index: 100;
+            display: none; justify-content: center; align-items: center;
+            opacity: 0; transition: opacity 0.3s ease; padding: 20px;
+        }
+        .modal-overlay.show { display: flex; opacity: 1; }
+        .modal-content { /* ... */
+            background-color: #fff; border-radius: 12px;
+            width: 90%; max-width: 700px; max-height: 85vh;
+            display: flex; flex-direction: column;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            transform: scale(0.95); transition: transform 0.3s ease;
+        }
+        .modal-overlay.show .modal-content { transform: scale(1); }
+        .modal-header { /* ... */
+            padding: 15px 20px; border-bottom: 1px solid var(--border-color);
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .modal-header h3 { margin: 0; font-size: 1.2rem; }
+        .modal-header .close-btn { background: none; border: none; font-size: 24px; color: var(--text-secondary); cursor: pointer; }
+        .modal-body { padding: 20px; overflow-y: auto; }
+
+        /* ⭐️ 모달 안 기록 섹션 */
+        .event-records { margin-bottom: 25px; }
+        .event-header {
+            display: flex; justify-content: space-between; align-items: baseline;
+            border-bottom: 2px solid var(--primary-color); padding-bottom: 5px; margin-bottom: 10px;
+        }
+        .event-name { font-size: 1.1rem; font-weight: 600; }
+        .event-goal { font-size: 0.9rem; color: var(--success-color); font-weight: 600; }
+        .event-goal .label { color: var(--text-secondary); font-weight: 500; }
+
+        /* ▼▼▼ 그래프 컨테이너 스타일 ▼▼▼ */
+        .chart-container {
+            position: relative;
+            height: 150px; /* 그래프 높이 */
+            width: 100%;
+            margin-bottom: 15px; /* 그래프 아래 여백 */
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 10px;
+        }
+        /* ▲▲▲ 그래프 컨테이너 스타일 ▲▲▲ */
+
+        .record-list { list-style: none; padding: 0; margin: 0; }
+        .record-item {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 8px 5px; border-bottom: 1px dashed var(--border-color); font-size: 0.9rem;
+        }
+        .record-item:last-child { border-bottom: none; }
+        .record-date { color: var(--text-secondary); }
+        .record-value { font-weight: 600; color: var(--primary-dark); }
+
+        /* --- Toast Popup --- */
+        .toast-popup { /* ... */
+             position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+            background-color: rgba(0,0,0,0.8); color: white; padding: 10px 18px; border-radius: 20px;
+            font-size: 0.9rem; z-index: 1002; opacity: 0; transition: opacity 0.3s, bottom 0.3s;
+            pointer-events: none;
+        }
+        .toast-popup.show { opacity: 1; bottom: 40px; }
+        .toast-popup.success { background-color: var(--success-color); }
+        .toast-popup.error { background-color: var(--danger-color); }
+
+        /* --- 모바일 반응형 --- */
+        @media (max-width: 767px) {
+            body { padding: 10px; }
+            .header { flex-direction: column; align-items: stretch; padding: 15px; }
+            .header h1 { font-size: 1.4rem; }
+            .header-controls { flex-direction: column; align-items: stretch; }
+            .chip { justify-content: space-between; width: 100%; }
+            .student-item-info { flex-direction: column; align-items: flex-start; gap: 3px; }
+            .modal-content { max-width: 95%; max-height: 90vh; }
+            .chart-container { height: 120px; } /* 모바일에서 그래프 높이 살짝 줄이기 */
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h1><i class="fas fa-chart-line"></i> 학생 기록 열람</h1>
+        <div class="header-controls">
+            <div class="chip">
+                <label for="year-select"><i class="fas fa-calendar-alt"></i> 학년도</label>
+                <select id="year-select">
+                    <option value="2026">2026</option>
+                    <option value="2027">2027</option>
+                    <option value="2028">2028</option>
+                    </select>
+            </div>
+            <div class="chip" id="viewSelectChip" style="display: none;">
+                <label for="view-select"><i class="fas fa-eye"></i> 보기</label>
+                <select id="view-select">
+                    <option value="my">우리 반 학생</option>
+                    <option value="all">전체 학생 (지점)</option>
+                </select>
+            </div>
+            </div>
+    </div>
+
+    <div class="student-list-container">
+        <ul class="student-list" id="studentList">
+            <p class="loading" id="studentListLoading"><i class="fas fa-spinner fa-spin"></i> 학생 목록 로딩 중...</p>
+        </ul>
+    </div>
+</div>
+
+<div class="modal-overlay" id="studentRecordModal" onclick="closeStudentRecordModal()">
+    <div class="modal-content" onclick="event.stopPropagation()">
+<div class="modal-header">
+            <h3 id="modalStudentName">학생 이름</h3>
+            <button class="close-btn" onclick="closeStudentRecordModal()">&times;</button>
+        </div>
+        <div class="modal-body" id="modalRecordsBody">
+            <p class="loading"><i class="fas fa-spinner fa-spin"></i> 기록 로딩 중...</p>
+        </div>
+    </div>
+</div>
+
+<template id="studentItemTemplate">
+    <li class="student-item" onclick="openStudentRecordModal(this.dataset.accountId, this.dataset.studentName)">
+        <div class="student-item-info">
+            <span class="student-name">학생 이름</span>
+            <span class="student-details">(<span class="grade">3</span>학년 / <span class="gender">남</span> / <span class="class-name">반</span>)</span>
+        </div>
+        <i class="fas fa-chevron-right"></i>
+    </li>
+</template>
+
+<template id="eventRecordsTemplate">
+    <div class="event-records">
+        <div class="event-header">
+            <span class="event-name">종목 이름</span>
+            <span class="event-goal"><span class="label">목표:</span> <span class="value">미설정</span></span>
+        </div>
+        <div class="chart-container">
+            <canvas class="record-chart"></canvas> </div>
+        <ul class="record-list">
+            </ul>
+    </div>
+</template>
+<template id="recordItemTemplate">
+    <li class="record-item">
+        <span class="record-date">YYYY-MM-DD</span>
+        <span class="record-value">00.00</span>
+    </li>
+</template>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // --- 서버 및 인증 ---
+        const SVR_JUNGSI = 'https://supermax.kr';
+        const LOGIN_PAGE = 'admin_login.html';
+
+        // --- HTML 요소 ---
+        const yearSelect = document.getElementById('year-select');
+        const viewSelectChip = document.getElementById('viewSelectChip');
+        const viewSelect = document.getElementById('view-select');
+        const studentList = document.getElementById('studentList');
+        const studentListLoading = document.getElementById('studentListLoading');
+        const studentRecordModal = document.getElementById('studentRecordModal');
+        const modalStudentName = document.getElementById('modalStudentName');
+        const modalRecordsBody = document.getElementById('modalRecordsBody');
+
+        let currentUser = null;
+        let isManagement = false; // 관리자(원장/부원장/팀장) 여부
+        let currentCharts = {}; // 현재 모달에 그려진 차트 인스턴스 저장용
+
+        // --- 인증 확인 및 권한 설정 ---
+        // ...(생략 - 기존과 동일)...
+        const getToken = () => localStorage.getItem('jwt_token');
+        const token = getToken();
+        if (!token) { alert('로그인이 필요합니다.'); window.location.href = LOGIN_PAGE; return; }
+        try {
+            const payloadBase64Url = token.split('.')[1];
+            const payloadBase64 = payloadBase64Url.replace(/-/g, '+').replace(/_/g, '/');
+            const decodedString = new TextDecoder().decode(Uint8Array.from(atob(payloadBase64), c => c.charCodeAt(0)));
+            currentUser = JSON.parse(decodedString);
+            console.log("로그인 사용자:", currentUser);
+            isManagement = currentUser && (
+                (currentUser.position && ['원장', '부원장', '팀장'].includes(currentUser.position)) ||
+                currentUser.role === 'admin'
+            );
+            console.log("관리 권한 여부:", isManagement);
+            if (isManagement) {
+                viewSelectChip.style.display = 'inline-flex';
+            }
+        } catch (e) {
+            console.error('토큰 처리 실패:', e); alert('인증 정보 오류.'); window.location.href = LOGIN_PAGE; return;
+        }
+
+        // --- API 호출 함수 (인증 포함) ---
+        // ...(생략 - 기존과 동일)...
+        const apiCall = async (url, options = {}) => {
+             const currentToken = getToken();
+            if (!currentToken) { alert('로그인 세션 만료'); window.location.href = LOGIN_PAGE; throw new Error('로그인 만료'); }
+            options.headers = { ...options.headers, 'Authorization': `Bearer ${currentToken}` };
+            try {
+                const response = await fetch(url, options);
+                if (response.status === 401) {
+                     alert('로그인 세션이 만료되었습니다. 다시 로그인해주세요.');
+                     localStorage.removeItem('jwt_token'); window.location.href = LOGIN_PAGE; throw new Error('로그인 만료');
+                } else if (response.status === 403) {
+                     alert('이 기능 또는 데이터에 접근할 권한이 없습니다.'); throw new Error('권한 없음');
+                }
+                if (!response.ok) {
+                    let errorMsg = `HTTP 오류 ${response.status}`; try { const errorData = await response.json(); errorMsg = errorData.message || errorMsg; } catch (_) {} throw new Error(errorMsg);
+                }
+                if (response.status === 204) { return { success: true }; }
+                 return await response.json();
+            } catch (error) {
+                console.error('API 호출 실패:', url, error);
+                if (error.message !== '로그인 만료' && error.message !== '권한 없음') {
+                    showToast(`네트워크 또는 서버 오류: ${error.message}`, false);
+                    throw new Error(error.message || '네트워크 오류');
+                }
+                throw error;
+            }
+        };
+
+        // --- Toast Popup 함수 ---
+        // ...(생략 - 기존과 동일)...
+        const showToast = (message, isSuccess = true) => {
+            const el = document.createElement('div'); el.textContent = message; el.className = `toast-popup ${isSuccess ? 'success' : 'error'}`; document.body.appendChild(el); setTimeout(() => el.classList.add('show'), 10); setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 500); }, 2500);
+        };
+
+        // --- 날짜 포맷팅 (YYYY-MM-DD) ---
+        // ...(생략 - 기존과 동일)...
+        const formatDate = (dateString) => {
+            if (!dateString) return '';
+            try {
+                // DB에서 DATE 타입으로 오면 Date 객체일 수 있음
+                if (dateString instanceof Date) {
+                    return dateString.toISOString().split('T')[0];
+                }
+                // 문자열이면 파싱 시도
+                return new Date(dateString).toISOString().split('T')[0];
+            } catch (e) { return String(dateString); } // 실패 시 원본 문자열 반환
+        };
+
+
+        // --- 1. 학생 목록 로드 ---
+        // ...(생략 - 기존과 동일)...
+        const loadStudentList = async () => {
+            const selectedYear = yearSelect.value;
+            const selectedView = isManagement ? viewSelect.value : 'my'; // 관리자 아니면 무조건 'my'
+            studentListLoading.style.display = 'block';
+            studentList.innerHTML = '';
+            studentList.appendChild(studentListLoading);
+            console.log(`학생 목록 로드 요청: year=${selectedYear}, view=${selectedView}`);
+            try {
+                const data = await apiCall(`${SVR_JUNGSI}/jungsi/teacher/record-view/students?year=${selectedYear}&view=${selectedView}`);
+                studentListLoading.style.display = 'none';
+                if (data.success && data.students) {
+                    if (data.students.length === 0) {
+                        const message = selectedView === 'my' ? '담당 학생이 없습니다.' : '해당 조건의 학생이 없습니다.';
+                        studentList.innerHTML = `<p class="no-data">${message}</p>`;
+                        return;
+                    }
+                    renderStudentList(data.students);
+                } else {
+                    studentList.innerHTML = `<p class="no-data">학생 목록 로드 실패: ${data.message || '오류'}</p>`;
+                }
+            } catch (err) {
+                 studentListLoading.style.display = 'none';
+                 console.error('loadStudentList error caught:', err.message);
+                 if (err.message !== '권한 없음' && err.message !== '로그인 만료') {
+                     studentList.innerHTML = `<p class="no-data">오류 발생: ${err.message}</p>`;
+                 }
+            }
+        };
+
+        // --- 2. 학생 목록 렌더링 ---
+        // ...(생략 - 기존과 동일)...
+        const renderStudentList = (students) => {
+            studentList.innerHTML = ''; // 로딩 메시지 제거
+            const template = document.getElementById('studentItemTemplate');
+            students.forEach(student => {
+                const item = template.content.cloneNode(true).firstElementChild;
+                item.dataset.accountId = student.account_id;
+                item.dataset.studentName = student.student_name;
+                item.querySelector('.student-name').textContent = student.student_name || '이름 없음';
+                item.querySelector('.grade').textContent = student.grade || '?';
+                item.querySelector('.gender').textContent = student.gender || '?';
+                item.querySelector('.class-name').textContent = student.class_name || '미배정';
+                studentList.appendChild(item);
+            });
+        };
+
+        // --- 3. 학생 기록 모달 열기 ---
+      // --- 3. 학생 기록 모달 열기 (⭐️ setTimeout 추가) ---
+        window.openStudentRecordModal = async (accountId, studentName) => {
+            if (!accountId) return;
+
+            // 모달 열기 전에 이전 차트 제거
+            Object.values(currentCharts).forEach(chart => chart.destroy());
+            currentCharts = {};
+
+            modalStudentName.textContent = `${studentName} 학생 기록 추이`;
+            modalRecordsBody.innerHTML = '<p class="loading"><i class="fas fa-spinner fa-spin"></i> 기록 로딩 중...</p>';
+            studentRecordModal.classList.add('show'); // 먼저 모달을 화면에 표시
+
+            // --- ▼▼▼ 수정: API 호출 및 렌더링을 setTimeout으로 약간 지연 ▼▼▼ ---
+            // 모달이 화면에 완전히 그려질 시간을 주기 위해 50ms 정도 기다렸다가 API 호출 및 렌더링 시작
+            setTimeout(async () => {
+                try {
+                    const data = await apiCall(`${SVR_JUNGSI}/jungsi/teacher/record-view/records/${accountId}`);
+                    if (data.success) {
+                        // API 호출 성공 후 기록 렌더링 (그래프 포함)
+                        renderStudentRecords(data.records || {}, data.goals || {});
+                    } else {
+                        modalRecordsBody.innerHTML = `<p class="no-data">기록 로드 실패: ${data.message || '오류'}</p>`;
+                    }
+                } catch (err) {
+                    // setTimeout 내부에서 발생한 에러 처리
+                    console.error('openStudentRecordModal (delayed) error caught:', err.message);
+                    if (err.message === '권한 없음' || err.message === '로그인 만료') {
+                        closeStudentRecordModal(); // 인증 관련 에러 시 모달 닫기
+                    } else {
+                        // 기타 에러 발생 시 로딩 메시지 대신 에러 메시지 표시
+                        modalRecordsBody.innerHTML = `<p class="no-data">오류 발생: ${err.message}</p>`;
+                    }
+                }
+            }, 150); // 50 밀리초 지연 (이 값은 필요에 따라 조절 가능)
+            // --- ▲▲▲ 수정 끝 ▲▲▲ ---
+        };
+
+        // --- 4. 모달 닫기 ---
+        window.closeStudentRecordModal = () => {
+             studentRecordModal.classList.remove('show');
+             // 모달 닫을 때도 차트 제거
+             Object.values(currentCharts).forEach(chart => chart.destroy());
+             currentCharts = {};
+        };
+
+        // --- 5. 모달 내 기록 렌더링 (그래프 포함) ---
+        // 이 함수(renderStudentRecords)는 수정할 필요 없어! 그대로 두면 돼.
+const renderStudentRecords = (records, goals) => {
+    modalRecordsBody.innerHTML = '';
+    const eventNames = Object.keys(records).sort();
+
+    if (eventNames.length === 0) {
+        modalRecordsBody.innerHTML = '<p class="no-data">기록된 데이터가 없습니다.</p>';
+        return;
+    }
+
+    const eventTemplate = document.getElementById('eventRecordsTemplate');
+    const recordTemplate = document.getElementById('recordItemTemplate');
+
+    const MAX_POINTS_FOR_CHART = 8; // 그래프 최대 점 개수
+    const MAX_LIST_ITEMS = 5;       // 리스트 최대 개수
+
+    eventNames.forEach(eventName => {
+        // ---- 섹션 만들기 ----
+        const eventSection = eventTemplate.content.cloneNode(true).firstElementChild;
+        eventSection.querySelector('.event-name').textContent = eventName;
+
+        // 목표 기록
+        const goalValueSpan = eventSection.querySelector('.event-goal .value');
+        if (goals[eventName] !== undefined && goals[eventName] !== null) {
+            goalValueSpan.textContent = goals[eventName];
+            goalValueSpan.style.color = 'var(--success-color)';
+        } else {
+            goalValueSpan.textContent = '미설정';
+            goalValueSpan.style.color = 'var(--text-secondary)';
+        }
+
+        // 기록들
+        const allRecords = records[eventName] || [];
+        const recordUl = eventSection.querySelector('.record-list');
+        const chartContainerEl = eventSection.querySelector('.chart-container');
+
+        if (allRecords.length === 0) {
+            // 기록 없는 경우
+            const noRecordLi = document.createElement('li');
+            noRecordLi.textContent = '기록 없음';
+            noRecordLi.style.fontSize = '0.85rem';
+            noRecordLi.style.color = 'var(--text-secondary)';
+            noRecordLi.style.padding = '8px 5px';
+            recordUl.appendChild(noRecordLi);
+
+            chartContainerEl.style.display = 'none';
+            modalRecordsBody.appendChild(eventSection);
+            return;
+        }
+
+        /* ==========================
+           1. 기준 배열: ascRecords
+           오래된 → 최신 (그래프에서 이미 잘 쓰고 있는 정렬)
+        ========================== */
+        const ascRecords = [...allRecords].sort(
+            (a, b) => new Date(a.date) - new Date(b.date)
+        );
+
+        /* ==========================
+           2. 리스트용 최근 N개 (최신이 위로 오게)
+           - ascRecords의 마지막 N개가 '가장 최근 N개 (오래된→최신 순서)'
+           - 그걸 reverse()하면 '최신→오래된 순서'
+           - 그걸 그대로 appendChild하면
+             ㄴ 최신이 첫 li 이므로 화면 최상단
+        ========================== */
+        const recentListForDisplay = ascRecords
+            .slice(-MAX_LIST_ITEMS)  // 최근 N개만 뽑기 (오래된→최신 순서)
+            .reverse();              // 이제 최신이 맨 앞
+
+        // 리스트 그리기
+        recordUl.innerHTML = '';
+        for (const r of recentListForDisplay) {
+            const recordLi = recordTemplate.content.cloneNode(true).firstElementChild;
+            recordLi.querySelector('.record-date').textContent = formatDate(r.date);
+            recordLi.querySelector('.record-value').textContent = r.value;
+            recordUl.appendChild(recordLi);
+        }
+
+        /* ==========================
+           3. 그래프용 데이터 (최근 8개만)
+           - ascRecords에서 마지막 8개 뽑으면
+             x축은 오래된→최신 그대로 유지
+        ========================== */
+        const recentForChartAsc = ascRecords.slice(-MAX_POINTS_FOR_CHART);
+        const chartLabels = recentForChartAsc.map(r => formatDate(r.date));
+        const chartData   = recentForChartAsc.map(r => r.value);
+
+        // 먼저 섹션을 DOM에 붙여서 Chart.js가 스타일 계산 가능하게
+        modalRecordsBody.appendChild(eventSection);
+
+        // 차트 생성 시도
+        try {
+            const chartCanvas = eventSection.querySelector('.record-chart');
+            const chartCtx = chartCanvas.getContext('2d');
+
+            const newChart = new Chart(chartCtx, {
+                type: 'line',
+                data: {
+                    labels: chartLabels,
+                    datasets: [{
+                        label: eventName + ' 기록',
+                        data: chartData,
+                        borderColor: 'rgba(37,99,235,1)',
+                        backgroundColor: 'rgba(37,99,235,0.1)',
+                        tension: 0.1,
+                        fill: true,
+                        pointRadius: 3,
+                        pointHoverRadius: 5
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                title: (ctx) => ctx[0].label,
+                                label: (ctx) => `기록: ${ctx.raw}`
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: false
+                        }
+                    }
+                }
+            });
+
+            currentCharts[eventName] = newChart;
+        } catch (chartError) {
+            console.error(`Chart.js error for event ${eventName}:`, chartError);
+            const errorMsgDiv = document.createElement('div');
+            errorMsgDiv.textContent = '차트를 불러오는 중 오류가 발생했습니다.';
+            errorMsgDiv.style.color = 'var(--danger-color)';
+            errorMsgDiv.style.fontSize = '0.8rem';
+            chartContainerEl.appendChild(errorMsgDiv);
+        }
+    });
+};
+        // --- 5. ⭐️⭐️⭐️ 모달 렌더링 함수 끝 ⭐️⭐️⭐️ ---
+
+        // --- 이벤트 리스너 연결 ---
+        yearSelect.addEventListener('change', loadStudentList);
+        viewSelect.addEventListener('change', loadStudentList); // 관리자만 해당
+
+        // --- 초기 실행 ---
+        loadStudentList(); // 페이지 로드 시 기본값으로 학생 목록 로드
+
+    });
+</script>
+
+</body>
+</html>
