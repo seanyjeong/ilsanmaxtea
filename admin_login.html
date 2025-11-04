@@ -53,7 +53,7 @@ document.getElementById('loginBtn').addEventListener('click', async () => {
 
   try {
     // ⭐️ 관리자/원장 로그인 API 호출 (/26susi_owner/login 사용)
-    const res = await fetch(`${SVR}/26susi_owner/login`, {
+    const res = await fetch(`${SVR}/26susi/owner_login`, {
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({ userid, password })
@@ -92,4 +92,5 @@ document.getElementById('pwInput').addEventListener('keypress', (e) => {
 </script>
 
 </body>
+
 </html>
