@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <title>퀘스트(운동) 목록 관리</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #2563eb; --primary-dark:#1d4ed8;
+            --light-bg: #f8fafc; --card-bg: #ffffff;
+            --border-color: #e2e8f0; --text-primary:#1e293b; --text-secondary:#475569;
+            --danger-color: #ef4444; --success-color: #10b981; --warning-color: #f59e0b;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        * { box-sizing: border-box; }
+        body { font-family: 'Pretendard', sans-serif; background: var(--light-bg); padding: 20px; margin: 0; line-height: 1.5; color: var(--text-primary); }
+        .container { max-width: 900px; margin: 0 auto; }
+
+        /* ---------- Header ---------- */
+        .header {
+            display: flex; justify-content: space-between; align-items: center;
+            gap: 12px; flex-wrap: wrap;
+            background: var(--card-bg); padding: 16px 18px; border-radius: 12px; box-shadow: var(--shadow);
+            margin-bottom: 20px;
+        }
+        .header h1 { font-size: 1.6rem; color: var(--primary-color); margin: 0; display: flex; align-items: center; gap: 10px; }
+        .btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 14px; border: none; border-radius: 8px; font-weight: 600; font-size: .9rem; cursor: pointer; transition: .2s; }
+        .btn-primary { background: var(--primary-color); color: #fff; }
+        .btn-primary:hover { background: var(--primary-dark); }
+        .btn-primary:disabled { background: #9ca3af; cursor: not-allowed; opacity: 0.7; }
+        .btn-danger { background: var(--danger-color); color: #fff; }
+        .btn-danger:hover { background: #dc2626; }
+        .btn-secondary { background: #e2e8f0; color: var(--text-secondary); }
+        .btn-secondary:hover { background: #cbd5e1; }
+
+        /* ---------- Card ---------- */
+        .card { background: var(--card-bg); border-radius: 12px; box-shadow: var(--shadow); padding: 20px; margin-bottom: 20px; }
+        .card-title { font-size: 1.3rem; font-weight: 600; margin: 0 0 15px; padding-bottom: 10px; border-bottom: 1px solid var(--border-color); }
+
+        /* 폼 요소 */
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .form-group { display: flex; flex-direction: column; }
+        .form-group label { font-size: 0.9rem; font-weight: 600; margin-bottom: 6px; color: var(--text-secondary); }
+        .form-group input[type="text"], .form-group select {
+            width: 100%; padding: 10px; font-size: 0.95rem;
+            border: 1px solid var(--border-color); border-radius: 8px; font-family: 'Pretendard', sans-serif;
+        }
+        .form-group.full-width { grid-column: 1 / -1; }
+        .form-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 15px; grid-column: 1 / -1; }
+        
+        /* 운동 목록 테이블 */
+        .table-container { width: 100%; overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 10px 12px; border-bottom: 1px solid var(--border-color); text-align: left; vertical-align: middle; }
+        th { background-color: #f1f5f9; font-weight: 600; color: var(--text-secondary); font-size: 0.9rem; }
+        tbody tr:last-child td { border-bottom: none; }
+        tbody tr:hover { background-color: #f8fafc; }
+        
+        .status-badge { padding: 3px 8px; font-size: 0.8rem; font-weight: 600; border-radius: 12px; }
+        .status-badge.active { background-color: var(--success-color); color: #fff; }
+        .status-badge.inactive { background-color: var(--border-color); color: var(--text-secondary); }
+
+        /* 로딩/데이터 없음 */
+        .loading, .no-data { text-align: center; padding: 30px; color: var(--text-secondary); }
+
+        /* --- Toast Popup --- */
+        .toast-popup {
+            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+            background-color: rgba(0,0,0,0.8); color: white; padding: 10px 18px; border-radius: 20px;
+            font-size: 0.9rem; z-index: 1002; opacity: 0; transition: opacity 0.3s, bottom 0.3s;
+            pointer-events: none;
+        }
+        .toast-popup.show { opacity: 1; bottom: 40px; }
+        .toast-popup.success { background-color: var(--success-color); }
+        .toast-popup.error { background-color: var(--danger-color); }
+
+        @media (max-width: 767px) {
+            body { padding: 10px; }
+            .header { padding: 15px; } .header h1 { font-size: 1.4rem; }
+            .card { padding: 15px; } .form-grid { grid-template-columns: 1fr; }
+            .btn-sm { padding: 8px 10px; font-size: 0.8rem; }
+            th, td { font-size: 0.9rem; padding: 8px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h1><i class="fas fa-cog"></i> 퀘스트(운동) 목록 관리</h1>
+    </div>
+
+    <div class="card" id="exerciseFormCard">
+        <h4 class="card-title" id="formTitle">새 운동 추가</h4>
+        <input type="hidden" id="editingExerciseId">
+        <div class="form-grid">
+            <div class="form-group full-width">
+                <label for="exerciseName">운동명 (필수)</label>
+                <input type="text" id="exerciseName" placeholder="예: 10m 왕복달리기">
+            </div>
+            <div class="form-group">
+                <label for="exerciseCategory">카테고리 (직접 입력 또는 선택)</label>
+                <input type="text" id="exerciseCategory" list="categoryDatalist" placeholder="예: Skill, Weight, Other">
+                <datalist id="categoryDatalist"></datalist>
+            </div>
+            <div class="form-group">
+                <label for="exerciseSubCategory">세부 카테고리 (직접 입력 또는 선택)</label>
+                <input type="text" id="exerciseSubCategory" list="subCategoryDatalist" placeholder="예: 달리기, 상체, 하체">
+                <datalist id="subCategoryDatalist"></datalist>
+            </div>
+            <div class="form-group">
+                <label for="exerciseStatus">상태</label>
+                <select id="exerciseStatus">
+                    <option value="1">활성화 (보여주기)</option>
+                    <option value="0">비활성화 (숨기기)</option>
+                </select>
+            </div>
+            <div class="form-actions">
+                <button type="button" id="cancelEditBtn" class="btn btn-secondary" style="display: none;">취소</button>
+                <button type="button" id="saveExerciseBtn" class="btn btn-primary">
+                    <i class="fas fa-save"></i> 저장하기
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h4 class="card-title">운동 목록</h4>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>운동명</th>
+                        <th>카테고리</th>
+                        <th>세부</th>
+                        <th>상태</th>
+                        <th>관리</th>
+                    </tr>
+                </thead>
+                <tbody id="exerciseListBody">
+                    <tr>
+                        <td colspan="5" class="loading" id="listLoading"><i class="fas fa-spinner fa-spin"></i> 목록 로딩 중...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<template id="exerciseItemTemplate">
+    <tr data-exercise-id="{{exercise_id}}">
+        <td class="name">운동명</td>
+        <td class="category">카테고리</td>
+        <td class="sub-category">세부</td>
+        <td><span class="status-badge">상태</span></td>
+        <td>
+            <button type="button" class="btn btn-secondary btn-sm edit-btn">
+                <i class="fas fa-edit"></i>
+            </button>
+            <button type="button" class="btn btn-danger btn-sm delete-btn">
+                <i class="fas fa-trash"></i>
+            </button>
+        </td>
+    </tr>
+</template>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // --- 서버 및 인증 ---
+        const SVR_JUNGSI = 'https://supermax.kr';
+        const LOGIN_PAGE = 'admin_login.html';
+
+        // --- HTML 요소 ---
+        const formTitle = document.getElementById('formTitle');
+        const editingExerciseId = document.getElementById('editingExerciseId');
+        const exerciseName = document.getElementById('exerciseName');
+        const exerciseCategory = document.getElementById('exerciseCategory');
+        const exerciseSubCategory = document.getElementById('exerciseSubCategory');
+        const exerciseStatus = document.getElementById('exerciseStatus');
+        const categoryDatalist = document.getElementById('categoryDatalist');
+        const subCategoryDatalist = document.getElementById('subCategoryDatalist');
+        const saveExerciseBtn = document.getElementById('saveExerciseBtn');
+        const cancelEditBtn = document.getElementById('cancelEditBtn');
+        const exerciseListBody = document.getElementById('exerciseListBody');
+        const listLoading = document.getElementById('listLoading');
+
+        let allExercises = []; // 전체 운동 목록 캐시
+
+        // --- 인증 확인 (관리자) ---
+        const getToken = () => localStorage.getItem('jwt_token');
+        const token = getToken();
+        let currentUser = null;
+        if (!token) { alert('로그인이 필요합니다.'); window.location.href = LOGIN_PAGE; return; }
+        try {
+            // ... (토큰 디코딩) ...
+            const payloadBase64Url = token.split('.')[1];
+            const payloadBase64 = payloadBase64Url.replace(/-/g, '+').replace(/_/g, '/');
+            const decodedString = new TextDecoder().decode(Uint8Array.from(atob(payloadBase64), c => c.charCodeAt(0)));
+            currentUser = JSON.parse(decodedString);
+            
+            // ⭐️ 관리 권한 확인
+            const isManagement = currentUser && (
+                (currentUser.position && ['원장', '부원장', '팀장'].includes(currentUser.position)) ||
+                currentUser.role === 'admin'
+            );
+            if (!isManagement) {
+                alert('이 페이지에 접근할 권한이 없습니다.');
+                window.location.href = 'index.html'; // 관리자 메인으로
+                return;
+            }
+        } catch (e) {
+            console.error('토큰 처리 실패:', e); alert('인증 정보 오류.'); window.location.href = LOGIN_PAGE; return;
+        }
+
+        // --- API 호출 함수 (인증 포함) ---
+        const apiCall = async (url, options = {}) => {
+            const currentToken = getToken();
+            if (!currentToken) { alert('로그인 세션 만료'); window.location.href = LOGIN_PAGE; throw new Error('로그인 만료'); }
+            options.headers = { ...options.headers, 'Authorization': `Bearer ${currentToken}` };
+            try {
+                const response = await fetch(url, options);
+                if (response.status === 401) {
+                     alert('로그인 세션 만료'); localStorage.removeItem('jwt_token'); window.location.href = LOGIN_PAGE; throw new Error('로그인 만료');
+                } else if (response.status === 403) {
+                     alert('이 기능에 접근할 권한이 없습니다.'); throw new Error('권한 없음');
+                }
+                if (!response.ok) {
+                    let errorMsg = `HTTP 오류 ${response.status}`; try { const errorData = await response.json(); errorMsg = errorData.message || errorMsg; } catch (_) {} throw new Error(errorMsg);
+                }
+                if (response.status === 204) { return { success: true }; }
+                 return await response.json();
+            } catch (error) {
+                console.error('API 호출 실패:', url, error);
+                if (error.message !== '로그인 만료' && error.message !== '권한 없음') {
+                    showToast(`네트워크 또는 서버 오류: ${error.message}`, false);
+                }
+                throw error;
+            }
+        };
+
+        // --- Toast Popup 함수 ---
+        const showToast = (message, isSuccess = true) => { const el = document.createElement('div'); el.textContent = message; el.className = `toast-popup ${isSuccess ? 'success' : 'error'}`; document.body.appendChild(el); setTimeout(() => el.classList.add('show'), 10); setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 500); }, 2500); };
+
+        // --- 1. 운동 목록 및 카테고리 로드 ---
+        const loadAllExercises = async () => {
+            listLoading.style.display = 'table-row';
+            exerciseListBody.innerHTML = '';
+            exerciseListBody.appendChild(listLoading);
+            try {
+                // 1.1. 전체 운동 목록 (활성/비활성 포함)
+                const data = await apiCall(`${SVR_JUNGSI}/jungsi/admin/master-exercises`);
+                if (data.success && data.exercises) {
+                    allExercises = data.exercises;
+                    renderExerciseList(allExercises);
+                } else {
+                    exerciseListBody.innerHTML = '<tr><td colspan="5" class="no-data">운동 목록 로드 실패</td></tr>';
+                }
+                
+                // 1.2. 기존 카테고리/세부 카테고리 목록 (Datalist용)
+                const catData = await apiCall(`${SVR_JUNGSI}/jungsi/admin/exercise-categories`);
+                if (catData.success) {
+                    populateDatalist(categoryDatalist, catData.categories);
+                    populateDatalist(subCategoryDatalist, catData.subCategories);
+                }
+            } catch (err) {
+                 listLoading.style.display = 'none';
+                 console.error('loadAllExercises error caught:', err.message);
+            }
+        };
+
+        // --- 2. 목록 렌더링 ---
+        const renderExerciseList = (exercises) => {
+            listLoading.style.display = 'none';
+            exerciseListBody.innerHTML = '';
+            if (exercises.length === 0) {
+                exerciseListBody.innerHTML = '<tr><td colspan="5" class="no-data">등록된 운동이 없습니다.</td></tr>';
+                return;
+            }
+            
+            const template = document.getElementById('exerciseItemTemplate');
+            exercises.forEach(ex => {
+                const item = template.content.cloneNode(true).firstElementChild;
+                item.dataset.exerciseId = ex.exercise_id;
+                item.querySelector('.name').textContent = ex.exercise_name;
+                item.querySelector('.category').textContent = ex.category || '-';
+                item.querySelector('.sub-category').textContent = ex.sub_category || '-';
+                
+                const statusBadge = item.querySelector('.status-badge');
+                if (ex.is_active) {
+                    statusBadge.textContent = '활성';
+                    statusBadge.classList.add('active');
+                } else {
+                    statusBadge.textContent = '비활성';
+                    statusBadge.classList.add('inactive');
+                }
+                
+                item.querySelector('.edit-btn').addEventListener('click', () => startEdit(ex));
+                item.querySelector('.delete-btn').addEventListener('click', () => deleteExercise(ex.exercise_id, ex.exercise_name));
+                
+                exerciseListBody.appendChild(item);
+            });
+        };
+        
+        // --- 3. Datalist 채우기 ---
+        const populateDatalist = (datalistElement, items) => {
+            datalistElement.innerHTML = '';
+            items.forEach(item => {
+                const option = document.createElement('option');
+                option.value = item;
+                datalistElement.appendChild(option);
+            });
+        };
+
+        // --- 4. 폼 초기화 ---
+        const resetForm = () => {
+            formTitle.textContent = '새 운동 추가';
+            editingExerciseId.value = '';
+            exerciseName.value = '';
+            exerciseCategory.value = '';
+            exerciseSubCategory.value = '';
+            exerciseStatus.value = '1'; // 기본값 '활성화'
+            saveExerciseBtn.innerHTML = '<i class="fas fa-save"></i> 저장하기';
+            saveExerciseBtn.disabled = false;
+            cancelEditBtn.style.display = 'none';
+        };
+
+        // --- 5. 수정 시작 ---
+        const startEdit = (exercise) => {
+            formTitle.textContent = '운동 수정';
+            editingExerciseId.value = exercise.exercise_id;
+            exerciseName.value = exercise.exercise_name;
+            exerciseCategory.value = exercise.category || '';
+            exerciseSubCategory.value = exercise.sub_category || '';
+            exerciseStatus.value = exercise.is_active ? '1' : '0';
+            saveExerciseBtn.innerHTML = '<i class="fas fa-edit"></i> 수정 완료';
+            cancelEditBtn.style.display = 'inline-flex';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        };
+
+        // --- 6. 저장 (추가/수정) ---
+        const saveExercise = async () => {
+            const id = editingExerciseId.value;
+            const name = exerciseName.value.trim();
+            const category = exerciseCategory.value.trim() || 'Other';
+            const subCategory = exerciseSubCategory.value.trim() || null;
+            const isActive = exerciseStatus.value === '1';
+
+            if (!name) {
+                showToast('운동명은 필수입니다.', false);
+                return;
+            }
+
+            saveExerciseBtn.disabled = true;
+            saveExerciseBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 저장 중...';
+
+            try {
+                const url = id
+                    ? `${SVR_JUNGSI}/jungsi/admin/master-exercises/${id}` // 수정
+                    : `${SVR_JUNGSI}/jungsi/admin/master-exercises`; // 추가
+                const method = id ? 'PUT' : 'POST';
+
+                await apiCall(url, {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        exercise_name: name,
+                        category: category,
+                        sub_category: subCategory,
+                        is_active: isActive
+                        // default_unit은 이 폼에서 관리 안 함 (필요 시 추가)
+                    })
+                });
+
+                showToast(id ? '✅ 운동 정보가 수정되었습니다.' : '✅ 새 운동이 추가되었습니다.', true);
+                resetForm();
+                loadAllExercises(); // 목록 새로고침
+
+            } catch (err) {
+                 console.error('saveExercise error caught:', err.message);
+                 // apiCall에서 이미 토스트 띄움
+            } finally {
+                 saveExerciseBtn.disabled = false;
+                 // resetForm에서 버튼 텍스트 복구
+            }
+        };
+
+        // --- 7. 삭제 ---
+        const deleteExercise = async (id, name) => {
+            if (!confirm(`[${name}] 운동을 정말 삭제하시겠습니까?\n(학생들에게 할당된 내역이 있다면 오류가 발생할 수 있습니다.)`)) {
+                return;
+            }
+
+            try {
+                await apiCall(`${SVR_JUNGSI}/jungsi/admin/master-exercises/${id}`, {
+                    method: 'DELETE'
+                });
+                showToast('🗑️ 운동이 삭제되었습니다.', true);
+                loadAllExercises(); // 목록 새로고침
+            } catch (err) {
+                 console.error('deleteExercise error caught:', err.message);
+            }
+        };
+
+        // --- 이벤트 리스너 연결 ---
+        saveExerciseBtn.addEventListener('click', saveExercise);
+        cancelEditBtn.addEventListener('click', resetForm);
+
+        // --- 초기 실행 ---
+        loadAllExercises();
+    });
+</script>
+
+</body>
+</html>
