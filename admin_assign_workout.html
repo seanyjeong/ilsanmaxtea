@@ -34,34 +34,80 @@
         .btn-primary { background: var(--primary-color); color: #fff; }
         .btn-primary:hover { background: var(--primary-dark); }
         .btn-primary:disabled { background: #9ca3af; cursor: not-allowed; opacity: 0.7; }
+        
+        .header-controls .btn-secondary {
+            font-size: 0.8rem; padding: 8px 10px; background: var(--light-bg);
+            color: var(--text-secondary); border: 1px solid var(--border-color);
+        }
+        .header-controls .btn-secondary:hover { background: var(--border-color); }
 
         /* ---------- Card ---------- */
         .card { background: var(--card-bg); border-radius: 12px; box-shadow: var(--shadow); padding: 20px; margin-bottom: 20px; }
-        .card-title { font-size: 1.3rem; font-weight: 600; margin: 0 0 15px; padding-bottom: 10px; border-bottom: 1px solid var(--border-color); }
+        .card-title { font-size: 1.3rem; font-weight: 600; margin: 0; padding: 0; border: none; }
         
+        .card-header-flex {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .card-header-flex .btn {
+            padding: 8px 12px;
+            font-size: 0.9rem;
+        }
+
         /* ---------- Assignment Area ---------- */
         .assignment-area { display: grid; grid-template-columns: 1fr; gap: 20px; }
         @media (min-width: 768px) {
-            .assignment-area { grid-template-columns: 300px 1fr; } /* PC: 좌측 운동 선택, 우측 할당 목록 */
+            .assignment-area { grid-template-columns: 300px 1fr; } 
         }
         
-        /* 운동 선택 (좌측) */
-        .exercise-selector h4 { margin: 0 0 10px; font-size: 1rem; }
-        #masterExerciseSelect { width: 100%; font-size: 1rem; padding: 10px; }
-        #addExerciseBtn { width: 100%; margin-top: 10px; justify-content: center; }
+        /* 운동 선택 (좌측) - 버튼 UI */
+        .selector-container label {
+            font-size: 0.8rem; font-weight: 600; color: var(--text-secondary);
+            margin: 10px 0 5px; display: block;
+        }
+        .selector-container label:first-child { margin-top: 0; }
+        .selector-group {
+            display: flex; flex-wrap: wrap; gap: 8px;
+            padding: 10px; background: #f8fafc; border: 1px solid var(--border-color);
+            border-radius: 8px; min-height: 40px;
+        }
+        .selector-group .loading-text, .selector-group .placeholder-text {
+            font-size: 0.9rem; color: var(--text-secondary); align-self: center;
+        }
+        .select-btn {
+            padding: 8px 12px; font-size: 0.9rem; font-weight: 500;
+            border: 1px solid var(--border-color); background: #fff; color: var(--text-primary);
+            border-radius: 6px; cursor: pointer; transition: all 0.2s;
+        }
+        .select-btn:hover {
+            background: var(--primary-color); color: #fff; border-color: var(--primary-color);
+        }
+        .select-btn.active {
+            background: var(--primary-dark); color: #fff; border-color: var(--primary-dark);
+            font-weight: 600;
+        }
+        .add-exercise-btn {
+            background: #fff; color: var(--primary-color); border: 1px solid var(--primary-color);
+        }
+        .add-exercise-btn:hover { background: var(--primary-color); color: #fff; }
+
 
         /* 할당 목록 (우측) */
         #assignmentList { list-style: none; padding: 0; margin: 0; }
         .assignment-item {
             background: #f8fafc; border: 1px solid var(--border-color);
             border-radius: 8px; padding: 12px; margin-bottom: 10px;
-            display: grid; grid-template-columns: 1fr auto; /* 내용 | 삭제버튼 */
+            display: grid; grid-template-columns: 1fr auto;
             gap: 10px 15px;
         }
         .assignment-item h5 { margin: 0; font-size: 1rem; grid-column: 1 / 2; }
         .assignment-item h5 .category { font-size: 0.8rem; color: var(--text-secondary); font-weight: 500; margin-left: 8px; }
         .delete-exercise-btn {
-            grid-column: 2 / 3; grid-row: 1 / 3; /* 버튼은 2행 차지 */
+            grid-column: 2 / 3; grid-row: 1 / 3;
             background: none; border: none; color: var(--danger-color);
             font-size: 1.2rem; cursor: pointer; padding: 5px;
         }
@@ -76,7 +122,7 @@
             width: 100%; padding: 6px 8px; border: 1px solid var(--border-color);
             border-radius: 4px; font-size: .9rem; text-align: center;
         }
-        .input-group.notes { grid-column: 1 / -1; } /* 메모칸은 넓게 */
+        .input-group.notes { grid-column: 1 / -1; }
         
         /* 로딩/데이터 없음 */
         .loading, .no-data { text-align: center; padding: 30px; color: var(--text-secondary); }
@@ -92,7 +138,7 @@
         .toast-popup.success { background-color: var(--success-color); }
         .toast-popup.error { background-color: var(--danger-color); }
         
-        /* --- ⭐️ 모바일 반응형 ⭐️ --- */
+        /* --- 모바일 반응형 --- */
         @media (max-width: 767px) {
             body { padding: 10px; }
             .header { flex-direction: column; align-items: stretch; padding: 15px; }
@@ -101,20 +147,28 @@
             .chip { justify-content: space-between; }
             .btn { justify-content: center; }
             .card { padding: 15px; }
-            .assignment-area { grid-template-columns: 1fr; } /* 모바일에선 무조건 1열 */
+            .assignment-area { grid-template-columns: 1fr; }
+            
+            .card-header-flex {
+                flex-wrap: wrap;
+                gap: 10px;
+            }
+            .card-header-flex .btn {
+                width: 100%;
+                justify-content: center;
+            }
         }
-
     </style>
 </head>
 <body>
 
 <div class="container">
     <div class="header">
-        <h1><i class="fas fa-clipboard-list"></i> 데일리 운동 할당</h1>
+        <h1><i class="fas fa-clipboard-list"></i> 일일퀘스트 할당</h1>
         <div class="header-controls">
-            <button type="button" id="saveAssignmentsBtn" class="btn btn-primary" disabled>
-                <i class="fas fa-save"></i> 학생 운동 할당하기
-            </button>
+            <a href="admin_manage_exercises.html" class="btn btn-secondary">
+                <i class="fas fa-cog"></i> 퀘스트 목록 관리
+            </a>
         </div>
     </div>
 
@@ -143,20 +197,34 @@
     
     <div class="assignment-area">
         <div class="card">
-            <h4 class="card-title">1. 운동 선택</h4>
-            <select id="masterExerciseSelect">
-                <option value="">- 운동 목록 로딩 중 -</option>
-            </select>
-            <button type="button" id="addExerciseBtn" class="btn btn-primary" disabled>
-                <i class="fas fa-plus"></i> 목록에 추가
-            </button>
+            <h4 class="card-title">1. 퀘스트 선택</h4>
+            <div class="selector-container">
+                <label>1. 카테고리</label>
+                <div id="categorySelector" class="selector-group">
+                    <p class="loading-text">퀘스트 목록 로딩 중...</p>
+                </div>
+                <label>2. 세부 카테고리</label>
+                <div id="subCategorySelector" class="selector-group" style="display: none;">
+                    <p class="placeholder-text">카테고리를 먼저 선택하세요.</p>
+                </div>
+                <label>3. 운동</label>
+                <div id="exerciseButtonContainer" class="selector-group" style="display: none;">
+                    <p class="placeholder-text">세부 카테고리를 선택하세요.</p>
+                </div>
+            </div>
         </div>
         
         <div class="card">
-            <h4 class="card-title">2. 오늘 할당할 운동</h4>
+            <div class="card-header-flex">
+                <h4 class="card-title">2. 퀘스트 내용</h4>
+                <button type="button" id="saveAssignmentsBtn" class="btn btn-primary" disabled>
+                    <i class="fas fa-save"></i> 일일 퀘스트 할당 및 수정
+                </button>
+            </div>
+            
             <ul id="assignmentList">
-                <p class="no-data" id="assignmentListPlaceholder">운동을 추가하세요.</p>
-                </ul>
+                <p class="no-data" id="assignmentListPlaceholder">퀘스트를 추가하세요.</p>
+            </ul>
         </div>
     </div>
 </div>
@@ -184,6 +252,7 @@
                 <input type="number" name="target_reps" placeholder="횟수">
             </div>
             <div class="input-group notes">
+                <grid-column: 1 / -1;>
                 <label>추가 메모 (목표 기록 등)</label>
                 <input type="text" name="target_notes" placeholder="예: 8.0초 목표, 자세 집중">
             </div>
@@ -196,20 +265,22 @@
     document.addEventListener('DOMContentLoaded', () => {
         // --- 서버 및 인증 ---
         const SVR_JUNGSI = 'https://supermax.kr';
-        const LOGIN_PAGE = 'jungsilogin.html'; // 또는 admin_login.html
+        const LOGIN_PAGE = 'admin_login.html'; //
 
         // --- HTML 요소 ---
         const yearSelect = document.getElementById('year-select');
         const studentSelect = document.getElementById('student-select');
         const dateSelect = document.getElementById('date-select');
-        const masterExerciseSelect = document.getElementById('masterExerciseSelect');
-        const addExerciseBtn = document.getElementById('addExerciseBtn');
+        const categorySelector = document.getElementById('categorySelector');
+        const subCategorySelector = document.getElementById('subCategorySelector');
+        const exerciseButtonContainer = document.getElementById('exerciseButtonContainer');
         const assignmentList = document.getElementById('assignmentList');
         const assignmentListPlaceholder = document.getElementById('assignmentListPlaceholder');
         const saveAssignmentsBtn = document.getElementById('saveAssignmentsBtn');
 
-        let myStudents = []; // ⭐️ 내 담당 학생 목록
-        let masterExercises = []; // ⭐️ 운동 마스터 목록
+        let myStudents = [];
+        let masterExercises = [];
+        let groupedExercises = {};
 
         // --- 인증 확인 ---
         const getToken = () => localStorage.getItem('jwt_token');
@@ -264,8 +335,11 @@
             const selectedYear = yearSelect.value;
             studentSelect.innerHTML = '<option value="">- 학생 로딩 중 -</option>';
             studentSelect.disabled = true;
+            
+            renderAssignmentListPlaceholder('학생을 선택하면 퀘스트 내용을 볼 수 있습니다.');
+            checkSaveButtonStatus();
+            
             try {
-                // ⭐️ API 호출: 내 담당 학생 목록
                 const data = await apiCall(`${SVR_JUNGSI}/jungsi/teacher/my-students?year=${selectedYear}`);
                 if (data.success && data.students) {
                     myStudents = data.students;
@@ -287,113 +361,201 @@
             }
         };
         
-        // --- 2. 운동 마스터 목록 로드 ---
+        // --- 2. 운동 마스터 목록 로드 및 카테고리 버튼 생성 ---
         const loadMasterExercises = async () => {
-            masterExerciseSelect.disabled = true;
+            categorySelector.innerHTML = '<p class="loading-text">운동 목록 로딩 중...</p>';
+            subCategorySelector.innerHTML = '<p class="placeholder-text">카테고리를 먼저 선택하세요.</p>';
+            exerciseButtonContainer.innerHTML = '<p class="placeholder-text">세부 카테고리를 선택하세요.</p>';
+            
             try {
-                // ⭐️ API 호출: 전체 운동 목록
                 const data = await apiCall(`${SVR_JUNGSI}/jungsi/master-exercises`);
                 if (data.success && data.exercises) {
                     masterExercises = data.exercises;
-                    masterExerciseSelect.innerHTML = '<option value="">- 운동 선택 -</option>';
                     
-                    // ⭐️ 카테고리별로 <optgroup> 생성
-                    const categories = {}; // { 'Weight': [], 'Skill': [], 'Other': [] }
+                    groupedExercises = {};
                     masterExercises.forEach(ex => {
-                        if (!categories[ex.category]) categories[ex.category] = [];
-                        categories[ex.category].push(ex);
-                    });
-
-                    // ⭐️ optgroup 순서대로 추가
-                    const categoryOrder = ['Skill', 'Weight', 'Other'];
-                    categoryOrder.forEach(categoryName => {
-                        if (categories[categoryName]) {
-                            const optgroup = document.createElement('optgroup');
-                            optgroup.label = `--- ${categoryName} ---`;
-                            categories[categoryName].forEach(ex => {
-                                const option = document.createElement('option');
-                                option.value = ex.exercise_id; // ID를 value로 사용
-                                option.textContent = `${ex.exercise_name} (${ex.sub_category || '기타'})`;
-                                // ⭐️ data 속성에 운동 정보 저장 (나중에 쓰기 편하게)
-                                option.dataset.exercise = JSON.stringify(ex);
-                                optgroup.appendChild(option);
-                            });
-                            masterExerciseSelect.appendChild(optgroup);
-                        }
+                        const cat = ex.category || 'Other';
+                        const subCat = ex.sub_category || '기타';
+                        if (!groupedExercises[cat]) groupedExercises[cat] = {};
+                        if (!groupedExercises[cat][subCat]) groupedExercises[cat][subCat] = [];
+                        groupedExercises[cat][subCat].push(ex);
                     });
                     
-                    masterExerciseSelect.disabled = false;
-                    addExerciseBtn.disabled = false;
+                    renderCategoryButtons(Object.keys(groupedExercises));
                 } else {
-                    masterExerciseSelect.innerHTML = '<option value="">- 목록 없음 -</option>';
+                    categorySelector.innerHTML = '<p class="placeholder-text">운동 목록 없음</p>';
                 }
             } catch (err) {
                 console.error('운동 마스터 목록 로딩 오류:', err);
-                masterExerciseSelect.innerHTML = '<option value="">- 로드 오류 -</option>';
+                categorySelector.innerHTML = '<p class="placeholder-text">로드 오류</p>';
                 showToast(`운동 목록 로드 오류: ${err.message}`, false);
             }
         };
+        
+        // --- 2-1. 카테고리 버튼 렌더링 ---
+        function renderCategoryButtons(categoryNames) {
+            categorySelector.innerHTML = '';
+            const categoryOrder = ['Skill', 'Weight', 'Other'];
+            
+            categoryNames.sort((a, b) => {
+                let aIdx = categoryOrder.indexOf(a);
+                let bIdx = categoryOrder.indexOf(b);
+                if (aIdx === -1) aIdx = 99;
+                if (bIdx === -1) bIdx = 99;
+                return aIdx - bIdx;
+            });
+            
+            categoryNames.forEach(catName => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'select-btn';
+                btn.textContent = catName;
+                btn.dataset.category = catName;
+                btn.addEventListener('click', () => {
+                    categorySelector.querySelectorAll('.select-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    renderSubCategoryButtons(catName);
+                });
+                categorySelector.appendChild(btn);
+            });
+        }
+        
+        // --- 2-2. 세부 카테고리 버튼 렌더링 ---
+        function renderSubCategoryButtons(categoryName) {
+            const subCats = groupedExercises[categoryName] ? Object.keys(groupedExercises[categoryName]) : [];
+            subCategorySelector.innerHTML = '';
+            exerciseButtonContainer.innerHTML = '<p class="placeholder-text">세부 카테고리를 선택하세요.</p>';
+            exerciseButtonContainer.style.display = 'none';
+            
+            if (subCats.length === 0) {
+                subCategorySelector.innerHTML = '<p class="placeholder-text">세부 카테고리 없음</p>';
+                subCategorySelector.style.display = 'block';
+                return;
+            }
+            
+            subCats.forEach(subCatName => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'select-btn';
+                btn.textContent = subCatName;
+                btn.dataset.subCategory = subCatName;
+                btn.addEventListener('click', () => {
+                    subCategorySelector.querySelectorAll('.select-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    renderExerciseButtons(categoryName, subCatName);
+                });
+                subCategorySelector.appendChild(btn);
+            });
+            subCategorySelector.style.display = 'block';
+        }
 
-        // --- 3. 할당 목록에 운동 추가 ---
-        const addExerciseToList = () => {
-            const selectedOption = masterExerciseSelect.options[masterExerciseSelect.selectedIndex];
-            if (!selectedOption || !selectedOption.value) {
-                showToast('추가할 운동을 선택하세요.', false);
+        // --- 2-3. 운동 버튼 렌더링 ---
+        function renderExerciseButtons(categoryName, subCategoryName) {
+            const exercises = groupedExercises[categoryName]?.[subCategoryName] || [];
+            exerciseButtonContainer.innerHTML = '';
+
+            if (exercises.length === 0) {
+                exerciseButtonContainer.innerHTML = '<p class="placeholder-text">운동 없음</p>';
+                exerciseButtonContainer.style.display = 'block';
                 return;
             }
 
-            const exerciseData = JSON.parse(selectedOption.dataset.exercise);
+            exercises.forEach(ex => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'select-btn add-exercise-btn';
+                btn.textContent = ex.exercise_name;
+                btn.dataset.exercise = JSON.stringify(ex);
+                btn.addEventListener('click', () => {
+                    addExerciseToList(ex);
+                });
+                exerciseButtonContainer.appendChild(btn);
+            });
+            exerciseButtonContainer.style.display = 'block';
+        }
 
-            // ⭐️ 이미 추가된 운동인지 확인 (exercise_id 기준)
+        // --- 3. 할당 목록에 운동 추가 ---
+        const addExerciseToList = (exerciseData) => {
+            if (!exerciseData || exerciseData.exercise_id === undefined) {
+                showToast('유효하지 않은 운동입니다.', false);
+                return;
+            }
             if (assignmentList.querySelector(`li[data-exercise-id="${exerciseData.exercise_id}"]`)) {
                 showToast('이미 목록에 추가된 운동입니다.', false);
                 return;
             }
-
-            // 템플릿 복사
             const template = document.getElementById('assignmentItemTemplate');
             const newItem = template.content.cloneNode(true).firstElementChild;
-
-            // 데이터 채우기
-            newItem.dataset.exerciseId = exerciseData.exercise_id; // ⭐️ ID 저장
+            newItem.dataset.exerciseId = exerciseData.exercise_id;
             newItem.querySelector('.exercise-name').textContent = exerciseData.exercise_name;
             newItem.querySelector('.category').textContent = `[${exerciseData.category} / ${exerciseData.sub_category || '기타'}]`;
-
-            // ⭐️ 운동 유형에 따라 입력칸 비활성화 (선택 사항)
             if (exerciseData.category !== 'Weight') {
-                 // 웨이트가 아니면 무게 입력칸 비활성화
                  const weightInput = newItem.querySelector('input[name="target_weight"]');
                  if (weightInput) { weightInput.disabled = true; weightInput.placeholder = '-'; }
             }
             if (exerciseData.category === 'Skill') {
-                 // 실기면 세트/횟수 대신 메모칸에 집중
                  const notesInput = newItem.querySelector('input[name="target_notes"]');
                  if(notesInput) notesInput.placeholder = '예: 8.0초 목표, 자세 집중';
             }
-
-            // placeholder 숨기기
-            if (assignmentListPlaceholder) assignmentListPlaceholder.style.display = 'none';
-            
-            assignmentList.appendChild(newItem); // 목록에 추가
-            masterExerciseSelect.value = ''; // 선택 초기화
-            checkSaveButtonStatus(); // 저장 버튼 상태 확인
+            assignmentListPlaceholder.style.display = 'none';
+            assignmentList.appendChild(newItem);
+            checkSaveButtonStatus();
         };
-        // ⭐️ 할당 목록에서 운동 제거 (onclick용 전역 함수)
+        
+        // --- 3-1. 기존 할당 목록 렌더링 ---
+        const renderExistingAssignment = (assignmentData) => {
+            const masterEx = masterExercises.find(ex => ex.exercise_name === assignmentData.exercise_name);
+            const exerciseId = masterEx ? masterEx.exercise_id : null;
+            
+            if (!exerciseId) {
+                console.warn(`Skipping render for unknown/deleted exercise: ${assignmentData.exercise_name}`);
+                return;
+            }
+            if (assignmentList.querySelector(`li[data-exercise-id="${exerciseId}"]`)) {
+                return;
+            }
+
+            const template = document.getElementById('assignmentItemTemplate');
+            const newItem = template.content.cloneNode(true).firstElementChild;
+            
+            newItem.dataset.exerciseId = exerciseId;
+            newItem.querySelector('.exercise-name').textContent = assignmentData.exercise_name;
+            newItem.querySelector('.category').textContent = `[${assignmentData.category} / ${assignmentData.sub_category || '기타'}]`;
+            newItem.querySelector('input[name="target_weight"]').value = assignmentData.target_weight || '';
+            newItem.querySelector('input[name="target_sets"]').value = assignmentData.target_sets || '';
+            newItem.querySelector('input[name="target_reps"]').value = assignmentData.target_reps || '';
+            newItem.querySelector('input[name="target_notes"]').value = assignmentData.target_notes || '';
+
+            if (assignmentData.category !== 'Weight') {
+                 const weightInput = newItem.querySelector('input[name="target_weight"]');
+                 if (weightInput) { weightInput.disabled = true; weightInput.placeholder = '-'; }
+            }
+            
+            assignmentList.appendChild(newItem);
+        };
+        
+        // --- 3-2. 퀘스트 목록 플레이스홀더 관리 ---
+        const renderAssignmentListPlaceholder = (message, showSpinner = false) => {
+             assignmentList.innerHTML = '';
+             assignmentListPlaceholder.innerHTML = showSpinner 
+                ? `<i class="fas fa-spinner fa-spin"></i> ${message}`
+                : message;
+             assignmentListPlaceholder.style.display = 'block';
+        };
+
+        // --- 할당 목록에서 운동 제거 (onclick용 전역 함수) ---
         window.removeExerciseItem = (buttonElement) => {
             buttonElement.closest('.assignment-item').remove();
-            if (assignmentList.children.length === 0) {
-                 if (assignmentListPlaceholder) assignmentListPlaceholder.style.display = 'block';
+            if (assignmentList.children.length === 0 || (assignmentList.children.length === 1 && assignmentList.children[0].tagName === 'P')) {
+                 renderAssignmentListPlaceholder('퀘스트를 추가하세요.');
             }
-            checkSaveButtonStatus(); // 저장 버튼 상태 확인
+            checkSaveButtonStatus();
         };
         
         // --- 4. 저장 버튼 활성화/비활성화 체크 ---
         const checkSaveButtonStatus = () => {
             const studentId = studentSelect.value;
             const assignmentDate = dateSelect.value;
-            const hasItems = assignmentList.querySelectorAll('.assignment-item').length > 0;
-            
-            // ⭐️ 학생, 날짜가 선택되었고, 할당할 운동이 있거나 *없으면* (전체 삭제) 저장 버튼 활성화
             if (studentId && assignmentDate) {
                  saveAssignmentsBtn.disabled = false;
             } else {
@@ -401,25 +563,52 @@
             }
         };
 
-        // --- 5. 최종 할당 저장 함수 ---
+        // --- 5. 기존 퀘스트 목록 불러오기 ---
+        const loadExistingAssignments = async () => {
+            const studentId = studentSelect.value;
+            const assignmentDate = dateSelect.value;
+            if (!studentId || !assignmentDate) {
+                renderAssignmentListPlaceholder('학생과 날짜를 선택하세요.');
+                checkSaveButtonStatus();
+                return;
+            }
+            
+            checkSaveButtonStatus();
+            renderAssignmentListPlaceholder('기존 퀘스트 로딩 중...', true);
+
+            try {
+                const data = await apiCall(`${SVR_JUNGSI}/jungsi/teacher/assignments/${studentId}/${assignmentDate}`);
+                
+                if (data.success && data.assignments) {
+                    if (data.assignments.length === 0) {
+                        renderAssignmentListPlaceholder('이 날짜에 할당된 퀘스트가 없습니다.');
+                    } else {
+                        assignmentListPlaceholder.style.display = 'none';
+                        data.assignments.forEach(renderExistingAssignment);
+                    }
+                } else {
+                    renderAssignmentListPlaceholder('기존 퀘스트 로드 실패');
+                    showToast(data.message || '기존 퀘스트 로드 실패', false);
+                }
+            } catch (err) {
+                renderAssignmentListPlaceholder('로드 중 오류 발생');
+            }
+        };
+
+        // --- 6. 최종 할당 저장 함수 ---
         const saveAssignments = async () => {
             const studentId = studentSelect.value;
             const assignmentDate = dateSelect.value;
-
             if (!studentId || !assignmentDate) {
                 showToast('학생과 할당 날짜를 모두 선택해야 합니다.', false);
                 return;
             }
-
             saveAssignmentsBtn.disabled = true;
             saveAssignmentsBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 저장 중...';
-
             const assignments = [];
-            // 현재 목록에 있는 모든 운동 항목 수집
             assignmentList.querySelectorAll('.assignment-item').forEach(item => {
                 const exerciseData = masterExercises.find(ex => ex.exercise_id == item.dataset.exerciseId);
-                if (!exerciseData) return; // 마스터 목록에 없는 운동 (오류)
-
+                if (!exerciseData) return;
                 assignments.push({
                     exercise_name: exerciseData.exercise_name,
                     category: exerciseData.category,
@@ -430,26 +619,24 @@
                     target_notes: item.querySelector('input[name="target_notes"]').value || null,
                 });
             });
-            
             console.log('Saving assignments:', assignments);
-
             try {
-                // ⭐️ API 호출: 운동 할당 (Bulk-Upsert: Delete then Insert)
                 const data = await apiCall(`${SVR_JUNGSI}/jungsi/teacher/assign-workout`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         student_account_id: parseInt(studentId),
                         assignment_date: assignmentDate,
-                        assignments: assignments // 운동 목록 배열
+                        assignments: assignments
                     })
                 });
-
                 if (data.success) {
-                    showToast('✅ 학생의 데일리 운동이 저장되었습니다.', true);
-                    // (선택) 저장 후 목록 비우기
-                    // assignmentList.innerHTML = '';
-                    // if (assignmentListPlaceholder) assignmentListPlaceholder.style.display = 'block';
+                    showToast(assignments.length > 0 ? '✅ 학생의 데일리 운동이 저장되었습니다.' : '✅ 학생의 오늘 운동이 초기화되었습니다.', true);
+                    
+                    // ▼▼▼▼▼ [수정] 할당 성공 시 카테고리 선택 초기화 ▼▼▼▼▼
+                    resetSelections();
+                    // ▲▲▲▲▲ [수정] 끝 ▲▲▲▲▲
+                    
                 } else {
                     showToast(`❌ 저장 실패: ${data.message || '알 수 없는 오류'}`, false);
                 }
@@ -458,21 +645,33 @@
                 showToast(`❌ 저장 중 오류 발생: ${err.message}`, false);
             } finally {
                 saveAssignmentsBtn.disabled = false;
-                saveAssignmentsBtn.innerHTML = '<i class="fas fa-save"></i> 학생 운동 할당하기';
+                saveAssignmentsBtn.innerHTML = '<i class="fas fa-save"></i> 일일 퀘스트 할당 및 수정';
             }
         };
 
-        // --- 6. 이벤트 리스너 연결 ---
+        // --- 7. 이벤트 리스너 연결 ---
         yearSelect.addEventListener('change', loadMyStudents);
-        studentSelect.addEventListener('change', checkSaveButtonStatus);
-        dateSelect.addEventListener('change', checkSaveButtonStatus);
-        addExerciseBtn.addEventListener('click', addExerciseToList);
+        studentSelect.addEventListener('change', loadExistingAssignments);
+        dateSelect.addEventListener('change', loadExistingAssignments);
         saveAssignmentsBtn.addEventListener('click', saveAssignments);
 
-        // --- 7. 초기 실행 ---
-        setTodayDate();     // 오늘 날짜 기본값 설정
-        loadMyStudents();   // 학년도 기본값으로 학생 목록 로드
-        loadMasterExercises(); // 운동 마스터 목록 로드
+        // --- ⭐️ (신규) 8. 운동 선택기 초기화 ---
+        function resetSelections() {
+            // 1. 활성화된 버튼들 비활성화
+            categorySelector.querySelectorAll('.select-btn').forEach(b => b.classList.remove('active'));
+            subCategorySelector.querySelectorAll('.select-btn').forEach(b => b.classList.remove('active'));
+            
+            // 2. 세부 카테고리/운동 목록 숨기기 및 초기화
+            subCategorySelector.innerHTML = '<p class="placeholder-text">카테고리를 먼저 선택하세요.</p>';
+            subCategorySelector.style.display = 'none';
+            exerciseButtonContainer.innerHTML = '<p class="placeholder-text">세부 카테고리를 선택하세요.</p>';
+            exerciseButtonContainer.style.display = 'none';
+        }
+
+        // --- 9. 초기 실행 (기존 '7'번) ---
+        setTodayDate();
+        loadMyStudents();
+        loadMasterExercises();
 
     });
 </script>
