@@ -35,11 +35,17 @@
         .btn-primary:hover { background: var(--primary-dark); }
         .btn-primary:disabled { background: #9ca3af; cursor: not-allowed; opacity: 0.7; }
         
-        .header-controls .btn-secondary {
-            font-size: 0.8rem; padding: 8px 10px; background: var(--light-bg);
-            color: var(--text-secondary); border: 1px solid var(--border-color);
+        /* ⭐️ [수정] .btn-secondary 기본 스타일 (전날 불러오기 버튼용) */
+        .btn-secondary {
+            background: var(--light-bg); color: var(--text-secondary);
+            border: 1px solid var(--border-color);
         }
-        .header-controls .btn-secondary:hover { background: var(--border-color); }
+        .btn-secondary:hover:not(:disabled) { background: var(--border-color); }
+        .btn-secondary:disabled { background: #f1f5f9; color: #9ca3af; cursor: not-allowed; opacity: 0.7; }
+
+        .header-controls .btn-secondary {
+            font-size: 0.8rem; padding: 8px 10px;
+        }
 
         /* ---------- Card ---------- */
         .card { background: var(--card-bg); border-radius: 12px; box-shadow: var(--shadow); padding: 20px; margin-bottom: 20px; }
@@ -49,6 +55,8 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            flex-wrap: wrap; /* ⭐️ 모바일에서 줄바꿈 허용 */
+            gap: 10px; /* ⭐️ 버튼 사이 간격 */
             margin-bottom: 15px;
             padding-bottom: 10px;
             border-bottom: 1px solid var(--border-color);
@@ -61,9 +69,19 @@
         /* ---------- Assignment Area ---------- */
         .assignment-area { display: grid; grid-template-columns: 1fr; gap: 20px; }
         @media (min-width: 768px) {
-            .assignment-area { grid-template-columns: 300px 1fr; } 
+            .assignment-area { 
+                grid-template-columns: 300px 1fr; 
+                align-items: start; /* ⭐️ (신규) 상단 정렬 */
+            } 
         }
         
+        /* ⭐️ (신규) 운동 선택 영역 스크롤 처리 */
+        .selector-container {
+            max-height: 60vh;
+            overflow-y: auto;
+            padding-right: 5px;
+        }
+
         /* 운동 선택 (좌측) - 버튼 UI */
         .selector-container label {
             font-size: 0.8rem; font-weight: 600; color: var(--text-secondary);
@@ -149,10 +167,11 @@
             .card { padding: 15px; }
             .assignment-area { grid-template-columns: 1fr; }
             
-            .card-header-flex {
-                flex-wrap: wrap;
-                gap: 10px;
+            /* ⭐️ (신규) 모바일에서 스크롤 높이 제한 */
+            .selector-container {
+                max-height: 40vh;
             }
+
             .card-header-flex .btn {
                 width: 100%;
                 justify-content: center;
@@ -173,7 +192,7 @@
     </div>
 
     <div class="card">
-        <div class="header-controls">
+        <div class="header-controls" style="flex-wrap: wrap; justify-content: space-between;">
             <div class="chip">
                 <label for="year-select"><i class="fas fa-calendar-alt"></i> 학년도</label>
                 <select id="year-select">
@@ -192,14 +211,16 @@
                 <label for="date-select"><i class="fas fa-calendar-day"></i> 할당 날짜</label>
                 <input type="date" id="date-select">
             </div>
-        </div>
+            <button type="button" id="loadPrevDayBtn" class="btn btn-secondary" style="padding: 8px 12px; font-size: 0.9rem; flex-grow: 1; min-width: 150px;" disabled>
+                <i class="fas fa-history"></i> 전날 운동 불러오기
+            </button>
+            </div>
     </div>
     
     <div class="assignment-area">
         <div class="card">
             <h4 class="card-title">1. 퀘스트 선택</h4>
-            <div class="selector-container">
-                <label>1. 카테고리</label>
+            <div class="selector-container"> <label>1. 카테고리</label>
                 <div id="categorySelector" class="selector-group">
                     <p class="loading-text">퀘스트 목록 로딩 중...</p>
                 </div>
@@ -217,6 +238,9 @@
         <div class="card">
             <div class="card-header-flex">
                 <h4 class="card-title">2. 퀘스트 내용</h4>
+                <button type="button" id="clearAssignmentsBtn" class="btn" style="background-color: var(--warning-color); color: white;">
+                    <i class="fas fa-times-circle"></i> 목록 초기화(초기화후, 수정버튼 눌러야함)
+                </button>
                 <button type="button" id="saveAssignmentsBtn" class="btn btn-primary" disabled>
                     <i class="fas fa-save"></i> 일일 퀘스트 할당 및 수정
                 </button>
@@ -277,6 +301,8 @@
         const assignmentList = document.getElementById('assignmentList');
         const assignmentListPlaceholder = document.getElementById('assignmentListPlaceholder');
         const saveAssignmentsBtn = document.getElementById('saveAssignmentsBtn');
+        const loadPrevDayBtn = document.getElementById('loadPrevDayBtn'); // ⭐️ [신규]
+        const clearAssignmentsBtn = document.getElementById('clearAssignmentsBtn'); // ⭐️ [신규]
 
         let myStudents = [];
         let masterExercises = [];
@@ -284,6 +310,7 @@
 
         // --- 인증 확인 ---
         const getToken = () => localStorage.getItem('jwt_token');
+        // ... (인증 로직은 기존과 동일) ...
         const token = getToken();
         let currentUser = null;
         if (!token) { alert('로그인이 필요합니다.'); window.location.href = LOGIN_PAGE; return; }
@@ -299,6 +326,7 @@
 
         // --- API 호출 함수 (인증 포함) ---
         const apiCall = async (url, options = {}) => {
+            // ... (기존과 동일) ...
             const currentToken = getToken();
             if (!currentToken) { alert('로그인 세션 만료'); window.location.href = LOGIN_PAGE; throw new Error('로그인 만료'); }
             options.headers = { ...options.headers, 'Authorization': `Bearer ${currentToken}` };
@@ -314,15 +342,29 @@
                 return await response.json();
             } catch (error) {
                 console.error('API 호출 실패:', url, error);
-                if (error.message !== '로그인 만료' && error.message !== '인증 오류') { throw new Error(error.message || '네트워크 오류'); } throw error;
+                if (error.message !== '로그인 만료' && error.message !== '인증 오류') { 
+                    showToast(`네트워크 또는 서버 오류: ${error.message}`, false); // ⭐️ (수정) 토스트 추가
+                    throw new Error(error.message || '네트워크 오류'); 
+                } throw error;
             }
         };
 
         // --- Toast Popup 함수 ---
-        const showToast = (message, isSuccess = true) => { const el = document.createElement('div'); el.textContent = message; el.className = `toast-popup ${isSuccess ? 'success' : 'error'}`; document.body.appendChild(el); setTimeout(() => el.classList.add('show'), 10); setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 500); }, 2500); };
+const showToast = (message, isSuccess = true, duration = 3000) => { // ⭐️ duration 파라미터 추가
+            const el = document.createElement('div'); 
+            el.textContent = message; 
+            el.className = `toast-popup ${isSuccess ? 'success' : 'error'}`; 
+            document.body.appendChild(el); 
+            setTimeout(() => el.classList.add('show'), 10); 
+            setTimeout(() => { 
+                el.classList.remove('show'); 
+                setTimeout(() => el.remove(), 500); 
+            }, duration); // ⭐️ 3000 -> duration으로 변경
+        };
         
         // --- 오늘 날짜 설정 ---
         const setTodayDate = () => {
+            // ... (기존과 동일) ...
             const today = new Date();
             const year = today.getFullYear();
             const month = String(today.getMonth() + 1).padStart(2, '0');
@@ -332,12 +374,13 @@
 
         // --- 1. 내 담당 학생 목록 로드 ---
         const loadMyStudents = async () => {
+            // ... (기존과 동일) ...
             const selectedYear = yearSelect.value;
             studentSelect.innerHTML = '<option value="">- 학생 로딩 중 -</option>';
             studentSelect.disabled = true;
             
             renderAssignmentListPlaceholder('학생을 선택하면 퀘스트 내용을 볼 수 있습니다.');
-            checkSaveButtonStatus();
+            checkSaveButtonStatus(); // ⭐️ 버튼 상태 갱신
             
             try {
                 const data = await apiCall(`${SVR_JUNGSI}/jungsi/teacher/my-students?year=${selectedYear}`);
@@ -357,12 +400,13 @@
             } catch (err) {
                 console.error('담당 학생 목록 로딩 오류:', err);
                 studentSelect.innerHTML = '<option value="">- 로드 오류 -</option>';
-                showToast(`학생 목록 로드 오류: ${err.message}`, false);
+                // apiCall에서 이미 토스트 띄움
             }
         };
         
         // --- 2. 운동 마스터 목록 로드 및 카테고리 버튼 생성 ---
         const loadMasterExercises = async () => {
+            // ... (기존과 동일) ...
             categorySelector.innerHTML = '<p class="loading-text">운동 목록 로딩 중...</p>';
             subCategorySelector.innerHTML = '<p class="placeholder-text">카테고리를 먼저 선택하세요.</p>';
             exerciseButtonContainer.innerHTML = '<p class="placeholder-text">세부 카테고리를 선택하세요.</p>';
@@ -388,12 +432,13 @@
             } catch (err) {
                 console.error('운동 마스터 목록 로딩 오류:', err);
                 categorySelector.innerHTML = '<p class="placeholder-text">로드 오류</p>';
-                showToast(`운동 목록 로드 오류: ${err.message}`, false);
+                // apiCall에서 이미 토스트 띄움
             }
         };
         
         // --- 2-1. 카테고리 버튼 렌더링 ---
         function renderCategoryButtons(categoryNames) {
+            // ... (기존과 동일) ...
             categorySelector.innerHTML = '';
             const categoryOrder = ['Skill', 'Weight', 'Other'];
             
@@ -422,6 +467,7 @@
         
         // --- 2-2. 세부 카테고리 버튼 렌더링 ---
         function renderSubCategoryButtons(categoryName) {
+            // ... (기존과 동일) ...
             const subCats = groupedExercises[categoryName] ? Object.keys(groupedExercises[categoryName]) : [];
             subCategorySelector.innerHTML = '';
             exerciseButtonContainer.innerHTML = '<p class="placeholder-text">세부 카테고리를 선택하세요.</p>';
@@ -451,6 +497,7 @@
 
         // --- 2-3. 운동 버튼 렌더링 ---
         function renderExerciseButtons(categoryName, subCategoryName) {
+            // ... (기존과 동일) ...
             const exercises = groupedExercises[categoryName]?.[subCategoryName] || [];
             exerciseButtonContainer.innerHTML = '';
 
@@ -476,6 +523,7 @@
 
         // --- 3. 할당 목록에 운동 추가 ---
         const addExerciseToList = (exerciseData) => {
+            // ... (기존과 동일) ...
             if (!exerciseData || exerciseData.exercise_id === undefined) {
                 showToast('유효하지 않은 운동입니다.', false);
                 return;
@@ -504,6 +552,7 @@
         
         // --- 3-1. 기존 할당 목록 렌더링 ---
         const renderExistingAssignment = (assignmentData) => {
+            // ... (기존과 동일) ...
             const masterEx = masterExercises.find(ex => ex.exercise_name === assignmentData.exercise_name);
             const exerciseId = masterEx ? masterEx.exercise_id : null;
             
@@ -536,6 +585,7 @@
         
         // --- 3-2. 퀘스트 목록 플레이스홀더 관리 ---
         const renderAssignmentListPlaceholder = (message, showSpinner = false) => {
+             // ... (기존과 동일) ...
              assignmentList.innerHTML = '';
              assignmentListPlaceholder.innerHTML = showSpinner 
                 ? `<i class="fas fa-spinner fa-spin"></i> ${message}`
@@ -543,8 +593,21 @@
              assignmentListPlaceholder.style.display = 'block';
         };
 
+        // --- ⭐️ [신규] 3-3. 퀘스트 목록 초기화 함수 ---
+        const clearAssignmentList = (confirmFirst = false) => {
+            if (confirmFirst) {
+                if (!confirm('현재 할당 목록을 모두 지우시겠습니까?')) return;
+            }
+            assignmentList.innerHTML = ''; // 목록 비우기
+            renderAssignmentListPlaceholder('퀘스트를 추가하세요.');
+            checkSaveButtonStatus(); // 저장 버튼 상태 갱신
+            resetSelections(); // 운동 선택기 리셋
+            showToast('목록이 초기화되었습니다.', true);
+        };
+
         // --- 할당 목록에서 운동 제거 (onclick용 전역 함수) ---
         window.removeExerciseItem = (buttonElement) => {
+            // ... (기존과 동일) ...
             buttonElement.closest('.assignment-item').remove();
             if (assignmentList.children.length === 0 || (assignmentList.children.length === 1 && assignmentList.children[0].tagName === 'P')) {
                  renderAssignmentListPlaceholder('퀘스트를 추가하세요.');
@@ -552,34 +615,44 @@
             checkSaveButtonStatus();
         };
         
-        // --- 4. 저장 버튼 활성화/비활성화 체크 ---
+        // --- 4. ⭐️ [수정] 버튼 활성화/비활성화 체크 ---
         const checkSaveButtonStatus = () => {
             const studentId = studentSelect.value;
             const assignmentDate = dateSelect.value;
             if (studentId && assignmentDate) {
                  saveAssignmentsBtn.disabled = false;
+                 loadPrevDayBtn.disabled = false; // ⭐️ 전날 불러오기 활성화
             } else {
                  saveAssignmentsBtn.disabled = true;
+                 loadPrevDayBtn.disabled = true; // ⭐️ 전날 불러오기 비활성화
+            }
+            
+            // ⭐️ 로딩 중 아닐 때 항상 텍스트 복구
+            if (!loadPrevDayBtn.disabled && !loadPrevDayBtn.querySelector('.fa-spin')) {
+                 loadPrevDayBtn.innerHTML = '<i class="fas fa-history"></i> 전날 운동 불러오기';
             }
         };
 
-        // --- 5. 기존 퀘스트 목록 불러오기 ---
+        // --- 5. ⭐️ [수정] 기존 퀘스트 목록 불러오기 ---
         const loadExistingAssignments = async () => {
             const studentId = studentSelect.value;
             const assignmentDate = dateSelect.value;
+            
+            checkSaveButtonStatus(); // ⭐️ 버튼 상태(disabled 여부)는 여기서 먼저 결정
+
             if (!studentId || !assignmentDate) {
                 renderAssignmentListPlaceholder('학생과 날짜를 선택하세요.');
-                checkSaveButtonStatus();
-                return;
+                return; // ⭐️ 함수 종료
             }
             
-            checkSaveButtonStatus();
+            loadPrevDayBtn.disabled = true; // ⭐️ '전날 불러오기' 버튼만 일시적으로 비활성화 (로딩 중)
             renderAssignmentListPlaceholder('기존 퀘스트 로딩 중...', true);
 
             try {
                 const data = await apiCall(`${SVR_JUNGSI}/jungsi/teacher/assignments/${studentId}/${assignmentDate}`);
                 
                 if (data.success && data.assignments) {
+                    assignmentList.innerHTML = ''; // ⭐️ 로딩 메시지 제거
                     if (data.assignments.length === 0) {
                         renderAssignmentListPlaceholder('이 날짜에 할당된 퀘스트가 없습니다.');
                     } else {
@@ -591,12 +664,68 @@
                     showToast(data.message || '기존 퀘스트 로드 실패', false);
                 }
             } catch (err) {
-                renderAssignmentListPlaceholder('로드 중 오류 발생');
+                 renderAssignmentListPlaceholder('로드 중 오류 발생');
+                 // apiCall에서 이미 토스트 띄움
+            } finally {
+                // ⭐️ try/catch 상관없이 '전날 불러오기' 버튼 상태 복구
+                checkSaveButtonStatus(); 
+            }
+        };
+        
+        // --- ⭐️ [신규] 5-1. 전날 운동 불러오기 함수 ---
+        const loadPreviousDayAssignments = async () => {
+            const studentId = studentSelect.value;
+            const currentDateStr = dateSelect.value;
+            if (!studentId || !currentDateStr) {
+                showToast('먼저 학생과 날짜를 선택하세요.', false);
+                return;
+            }
+
+            // 1. 어제 날짜 계산
+            const currentDate = new Date(currentDateStr);
+            currentDate.setDate(currentDate.getDate() - 1);
+            const prevDateStr = currentDate.toISOString().split('T')[0];
+
+            console.log(`전날(${prevDateStr}) 운동 불러오기 시도...`);
+            loadPrevDayBtn.disabled = true;
+            loadPrevDayBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 불러오는 중...';
+
+            try {
+                // 2. '어제 날짜'로 API 호출 (기존 API 재활용)
+                const data = await apiCall(`${SVR_JUNGSI}/jungsi/teacher/assignments/${studentId}/${prevDateStr}`);
+                
+                if (data.success && data.assignments) {
+                    if (data.assignments.length === 0) {
+                        showToast(`전날(${prevDateStr}) 할당된 운동이 없습니다.`, true);
+                        clearAssignmentList(false); // 목록 비우기 (확인창 없이)
+                    } else {
+                        // 3. '현재 목록'을 비우고 '어제 목록'으로 렌더링
+                        assignmentList.innerHTML = ''; // 기존 목록 싹 비우기
+                        assignmentListPlaceholder.style.display = 'none';
+                        data.assignments.forEach(renderExistingAssignment);
+                        // ⭐️ 3초 -> 4초로 변경 (긴 메시지)
+                        showToast(`✅ 전날(${prevDateStr}) 운동 ${data.assignments.length}개를 불러왔습니다. '저장하기'를 눌러야 오늘 날짜로 할당됩니다.`, true, 4000); // ⭐️ 4초로 연장
+                    }
+                } else {
+                    showToast(`전날 운동 로드 실패: ${data.message || '오류'}`, false);
+                }
+            } catch (err) {
+                 // apiCall에서 이미 토스트 띄움
+                 console.error('loadPreviousDayAssignments error:', err);
+            } finally {
+                // ▼▼▼▼▼ [수정된 부분] ▼▼▼▼▼
+                // ⭐️ 버튼 텍스트를 먼저 강제로 복구합니다.
+                loadPrevDayBtn.innerHTML = '<i class="fas fa-history"></i> 전날 운동 불러오기';
+                // ⭐️ 그 다음, 활성화/비활성화 상태를 결정합니다.
+                checkSaveButtonStatus();
+                // ▲▲▲▲▲ [수정된 부분] ▲▲▲▲▲
             }
         };
 
+
         // --- 6. 최종 할당 저장 함수 ---
         const saveAssignments = async () => {
+            // ... (기존과 동일) ...
             const studentId = studentSelect.value;
             const assignmentDate = dateSelect.value;
             if (!studentId || !assignmentDate) {
@@ -632,36 +761,32 @@
                 });
                 if (data.success) {
                     showToast(assignments.length > 0 ? '✅ 학생의 데일리 운동이 저장되었습니다.' : '✅ 학생의 오늘 운동이 초기화되었습니다.', true);
-                    
-                    // ▼▼▼▼▼ [수정] 할당 성공 시 카테고리 선택 초기화 ▼▼▼▼▼
-                    resetSelections();
-                    // ▲▲▲▲▲ [수정] 끝 ▲▲▲▲▲
-                    
+                    resetSelections(); // ⭐️ (수정) 카테고리 선택 초기화 (기존 코드)
                 } else {
                     showToast(`❌ 저장 실패: ${data.message || '알 수 없는 오류'}`, false);
                 }
             } catch (err) {
                 console.error('운동 할당 저장 오류:', err);
-                showToast(`❌ 저장 중 오류 발생: ${err.message}`, false);
+                // apiCall에서 이미 토스트 띄움
             } finally {
                 saveAssignmentsBtn.disabled = false;
                 saveAssignmentsBtn.innerHTML = '<i class="fas fa-save"></i> 일일 퀘스트 할당 및 수정';
             }
         };
 
-        // --- 7. 이벤트 리스너 연결 ---
+        // --- 7. ⭐️ [수정] 이벤트 리스너 연결 ---
         yearSelect.addEventListener('change', loadMyStudents);
         studentSelect.addEventListener('change', loadExistingAssignments);
         dateSelect.addEventListener('change', loadExistingAssignments);
         saveAssignmentsBtn.addEventListener('click', saveAssignments);
+        loadPrevDayBtn.addEventListener('click', loadPreviousDayAssignments); // ⭐️ [신규]
+        clearAssignmentsBtn.addEventListener('click', () => clearAssignmentList(true)); // ⭐️ [신규]
 
-        // --- ⭐️ (신규) 8. 운동 선택기 초기화 ---
+        // --- 8. (신규) 8. 운동 선택기 초기화 ---
         function resetSelections() {
-            // 1. 활성화된 버튼들 비활성화
+            // ... (기존과 동일) ...
             categorySelector.querySelectorAll('.select-btn').forEach(b => b.classList.remove('active'));
             subCategorySelector.querySelectorAll('.select-btn').forEach(b => b.classList.remove('active'));
-            
-            // 2. 세부 카테고리/운동 목록 숨기기 및 초기화
             subCategorySelector.innerHTML = '<p class="placeholder-text">카테고리를 먼저 선택하세요.</p>';
             subCategorySelector.style.display = 'none';
             exerciseButtonContainer.innerHTML = '<p class="placeholder-text">세부 카테고리를 선택하세요.</p>';
