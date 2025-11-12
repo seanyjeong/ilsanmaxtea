@@ -1,68 +1,114 @@
-const CACHE_NAME = 'max-season-admin-v1';
-// 폰에 미리 저장해둘 파일 목록
-const FILES_TO_CACHE = [
-  'index.html',
-  'welcome.html',
-  'admin_login.html',
-  'admin_student_assignment.html',
-  'admin_assign_workout.html',
-  'admin_student_notes.html',
-  'admin_student_dashboard.html',
-  'admin_student_announcements.html',
-  'admin_student_records_view.html',
-  'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css' // 폰트 아이콘
-];
+/* /admin/sw.js — I-MAX Instructor PWA
+   - HTML: Network First (오프라인 시 캐시 폴백)
+   - Assets(JS/CSS/img/font): Stale-While-Revalidate
+   - supermax.kr API: 네트워크 직통
+   - 즉시 활성화 + 구캐시 정리
+*/
 
-// 1. 앱 설치 (install) 이벤트
-self.addEventListener('install', (evt) => {
-  console.log('[ServiceWorker] Install');
-  // 캐시 열고 -> 파일들 저장
-  evt.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      console.log('[ServiceWorker] Pre-caching offline page');
-      return cache.addAll(FILES_TO_CACHE);
-    })
-  );
+const CACHE_HTML   = 'imax-admin-html';
+const CACHE_ASSETS = 'imax-admin-assets';
+
+async function cleanOldCaches() {
+  const keep = new Set([CACHE_HTML, CACHE_ASSETS]);
+  const keys = await caches.keys();
+  await Promise.all(keys.filter(k => !keep.has(k)).map(k => caches.delete(k)));
+}
+
+self.addEventListener('install', (event) => {
+  // 프리캐시는 필수 아님. 오프라인 첫실행까지 대비하려면 아래 주석 해제
+  // event.waitUntil(caches.open(CACHE_HTML).then(c => c.addAll(['/admin/index.html','/admin/manifest.json'])));
   self.skipWaiting();
 });
 
-// 2. 앱 활성화 (activate) 이벤트 - 예전 캐시 정리
-self.addEventListener('activate', (evt) => {
-  console.log('[ServiceWorker] Activate');
-  evt.waitUntil(
-    caches.keys().then((keyList) => {
-      return Promise.all(keyList.map((key) => {
-        if (key !== CACHE_NAME) {
-          console.log('[ServiceWorker] Removing old cache', key);
-          return caches.delete(key);
-        }
-      }));
-    })
-  );
-  self.clients.claim();
+self.addEventListener('activate', (event) => {
+  event.waitUntil((async () => {
+    await cleanOldCaches();
+    await self.clients.claim();
+  })());
 });
 
-// 3. 파일 요청 (fetch) 이벤트 - 캐시된 파일 먼저 보여주기 (Stale-While-Revalidate)
-self.addEventListener('fetch', (evt) => {
-  // API 요청(supermax.kr)은 캐시하지 않고 항상 네트워크로 요청
-  if (evt.request.url.includes('supermax.kr')) {
-    evt.respondWith(fetch(evt.request));
+// HTML: 네트워크 우선
+async function networkFirstHTML(request) {
+  try {
+    const fresh = await fetch(request);
+    const c = await caches.open(CACHE_HTML);
+    c.put(request, fresh.clone());
+    return fresh;
+  } catch (e) {
+    const cached = await caches.match(request);
+    if (cached) return cached;
+    // SPA 라우팅 폴백 (경로에 맞게 조정)
+    const fallback = await caches.match('/admin/index.html');
+    if (fallback) return fallback;
+    throw e;
+  }
+}
+
+// 정적 리소스: SWR
+async function swrAsset(request) {
+  const c = await caches.open(CACHE_ASSETS);
+  const cached = await c.match(request);
+
+  const fetchPromise = fetch(request)
+    .then(res => {
+      if (res && res.status === 200) c.put(request, res.clone());
+      return res;
+    })
+    .catch(() => null);
+
+  return cached || fetchPromise || new Response('', { status: 504 });
+}
+
+self.addEventListener('fetch', (event) => {
+  const req = event.request;
+  const url = new URL(req.url);
+
+  // 0) API(supermax.kr)는 항상 네트워크
+  if (url.hostname.endsWith('supermax.kr')) {
+    event.respondWith(fetch(req));
     return;
   }
 
-  // 나머지 파일(HTML, CSS 등)은 캐시 우선
-  evt.respondWith(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.match(evt.request)
-        .then((response) => {
-          // 1. 캐시에 있으면 -> 일단 캐시 파일 보여줌
-          // 2. 동시에 -> 네트워크로 새 파일 가져와서 캐시 업데이트
-          const fetchPromise = fetch(evt.request).then((networkResponse) => {
-            cache.put(evt.request, networkResponse.clone());
-            return networkResponse;
-          });
-          return response || fetchPromise; // 캐시에 있으면 캐시(response) 반환, 없으면 네트워크(fetchPromise) 반환
-        });
-    })
-  );
+  const isSameOrigin = url.origin === self.location.origin;
+  const isHTML = req.mode === 'navigate' ||
+                 (req.headers.get('accept') || '').includes('text/html');
+
+  // 1) HTML 문서
+  if (isSameOrigin && isHTML) {
+    event.respondWith(networkFirstHTML(req));
+    return;
+  }
+
+  // 2) 정적 리소스 (같은 오리진)
+  if (
+    isSameOrigin &&
+    (url.pathname.endsWith('.js')   ||
+     url.pathname.endsWith('.css')  ||
+     url.pathname.endsWith('.png')  ||
+     url.pathname.endsWith('.jpg')  ||
+     url.pathname.endsWith('.jpeg') ||
+     url.pathname.endsWith('.webp') ||
+     url.pathname.endsWith('.svg')  ||
+     url.pathname.endsWith('.ico')  ||
+     url.pathname.endsWith('.woff') ||
+     url.pathname.endsWith('.woff2'))
+  ) {
+    event.respondWith(swrAsset(req));
+    return;
+  }
+
+  // 3) 그 외: 네트워크 우선(+캐시 폴백)
+  if (isSameOrigin) {
+    event.respondWith((async () => {
+      try { return await fetch(req); }
+      catch {
+        const cached = await caches.match(req);
+        if (cached) return cached;
+        throw new Response('Offline', { status: 503 });
+      }
+    })());
+    return;
+  }
+
+  // 외부 리소스는 기본 네트워크 우선 (필요시 도메인별 규칙 추가)
 });
