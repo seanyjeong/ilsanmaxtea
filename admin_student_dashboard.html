@@ -166,6 +166,10 @@
              background: var(--light-bg); border-radius: 8px;
              padding: 12px 15px; margin-bottom: 10px;
              border-left: 4px solid var(--primary-color);
+             cursor: pointer; transition: all 0.2s ease;
+        }
+        .saved-uni-item:hover {
+             background: #e0e7ff; transform: translateX(5px);
         }
         .saved-uni-item .uni-name { font-weight: 600; font-size: 1rem; color: var(--primary-dark); }
         .saved-uni-item .dept-name { font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 8px; }
@@ -175,11 +179,52 @@
         }
         .saved-uni-details .gun { font-weight: 600; }
         .saved-uni-details .score { font-weight: 600; color: var(--danger-color); }
+        .saved-uni-ratio {
+            font-size: 0.8rem; margin-top: 6px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;
+        }
+        .saved-uni-ratio .ratio-item {
+            background: white; padding: 4px 8px; border-radius: 4px; text-align: center;
+        }
+        .saved-uni-ratio .ratio-item .label { font-size: 0.75rem; color: var(--text-secondary); display: block; }
+        .saved-uni-ratio .ratio-item .value { font-weight: 600; color: var(--primary-color); }
+        .saved-uni-cutline {
+            font-size: 0.8rem; margin-top: 6px; display: flex; gap: 10px; justify-content: space-between;
+        }
+        .saved-uni-cutline .cutline-item {
+            background: white; padding: 4px 8px; border-radius: 4px; flex: 1; text-align: center;
+        }
+        .saved-uni-cutline .cutline-item .label { font-size: 0.75rem; color: var(--text-secondary); display: block; }
+        .saved-uni-cutline .cutline-item .value { font-weight: 600; color: var(--danger-color); }
         .saved-uni-events {
             font-size: 0.8rem; color: var(--text-secondary); margin-top: 8px;
             padding-top: 8px; border-top: 1px dashed var(--border-color);
         }
         .saved-uni-events strong { color: var(--text-primary); }
+
+        /* 학생 기록 모달 */
+        .record-modal-body {
+            max-height: 60vh; overflow-y: auto;
+        }
+        .record-history-list { list-style: none; padding: 0; margin: 0; }
+        .record-history-item {
+            background: var(--light-bg); border-radius: 8px;
+            padding: 12px 15px; margin-bottom: 10px;
+            border-left: 4px solid var(--success-color);
+        }
+        .record-date { font-weight: 600; font-size: 0.9rem; color: var(--primary-dark); margin-bottom: 8px; }
+        .record-scores {
+            display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px;
+            font-size: 0.85rem;
+        }
+        .record-scores .score-item {
+            background: white; padding: 6px 10px; border-radius: 6px;
+        }
+        .record-scores .score-item .label { color: var(--text-secondary); margin-right: 5px; }
+        .record-scores .score-item .value { font-weight: 600; color: var(--primary-color); }
+        .record-total {
+            margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border-color);
+            font-weight: 700; color: var(--danger-color); font-size: 1rem; text-align: right;
+        }
 
         /* --- Toast Popup --- */
         .toast-popup {
@@ -245,6 +290,21 @@
     </div>
 </div>
 
+<div class="modal-overlay" id="studentRecordModal" onclick="closeRecordModal()">
+    <div class="modal-content" onclick="event.stopPropagation()">
+        <div class="modal-header">
+            <h3 id="modalRecordTitle">학생 기록</h3>
+            <button class="close-btn" onclick="closeRecordModal()">&times;</button>
+        </div>
+        <div class="modal-body record-modal-body">
+            <h4 style="margin-top:0;">점수 기록 내역</h4>
+            <ul class="record-history-list" id="modalRecordList">
+                <p class="loading"><i class="fas fa-spinner fa-spin"></i> 기록 로딩 중...</p>
+            </ul>
+        </div>
+    </div>
+</div>
+
 
 <template id="studentCardTemplate">
     <div class="student-card" onclick="openStudentModal(this.dataset.accountId, this.dataset.studentName)">
@@ -271,9 +331,54 @@
             <span class="gun">가군</span>
             <span class="score">수능점수: 0.00점</span>
         </div>
+        <div class="saved-uni-ratio">
+            <div class="ratio-item">
+                <span class="label">수능</span>
+                <span class="value ratio-suneung">0%</span>
+            </div>
+            <div class="ratio-item">
+                <span class="label">내신</span>
+                <span class="value ratio-naeshin">0%</span>
+            </div>
+            <div class="ratio-item">
+                <span class="label">실기</span>
+                <span class="value ratio-silgi">0%</span>
+            </div>
+        </div>
+        <div class="saved-uni-cutline">
+            <div class="cutline-item">
+                <span class="label">지원컷</span>
+                <span class="value cutline-support">-</span>
+            </div>
+            <div class="cutline-item">
+                <span class="label">총점컷</span>
+                <span class="value cutline-total">-</span>
+            </div>
+        </div>
         <div class="saved-uni-events">
             <strong>실기:</strong> <span class="events-list">실기 종목 없음</span>
         </div>
+    </li>
+</template>
+
+<template id="recordHistoryItemTemplate">
+    <li class="record-history-item">
+        <div class="record-date">2024-01-01</div>
+        <div class="record-scores">
+            <div class="score-item">
+                <span class="label">수능:</span>
+                <span class="value score-suneung">0.00점</span>
+            </div>
+            <div class="score-item">
+                <span class="label">내신:</span>
+                <span class="value score-naeshin">0.00점</span>
+            </div>
+            <div class="score-item">
+                <span class="label">실기:</span>
+                <span class="value score-silgi">0.00점</span>
+            </div>
+        </div>
+        <div class="record-total">총점: <span class="total-value">0.00점</span></div>
     </li>
 </template>
 
@@ -291,6 +396,9 @@
         const studentDetailModal = document.getElementById('studentDetailModal');
         const modalStudentName = document.getElementById('modalStudentName');
         const modalSavedUniList = document.getElementById('modalSavedUniList');
+        const studentRecordModal = document.getElementById('studentRecordModal');
+        const modalRecordTitle = document.getElementById('modalRecordTitle');
+        const modalRecordList = document.getElementById('modalRecordList');
 
         let myStudents = []; // 내 담당 학생 목록
         let currentUser = null; // 로그인한 선생님(원장) 정보
@@ -466,6 +574,7 @@ badgeContainer.appendChild(questBadge);
             const selectedYear = yearSelect.value;
             modalStudentName.textContent = `${studentName} 학생 (${selectedYear})`; // 년도 표시 추가
             modalSavedUniList.innerHTML = '<p class="loading"><i class="fas fa-spinner fa-spin"></i> 저장 대학 로딩 중...</p>';
+
             studentDetailModal.classList.add('show');
 
             try {
@@ -473,7 +582,7 @@ badgeContainer.appendChild(questBadge);
                 const data = await apiCall(`${SVR_JUNGSI}/jungsi/teacher/student-saved-list/${accountId}/${selectedYear}`);
 
                 if (data.success && data.savedUniversities) {
-                    renderSavedUniList(data.savedUniversities);
+                    renderSavedUniList(data.savedUniversities, accountId, studentName);
                 } else {
                      modalSavedUniList.innerHTML = `<p class="no-data">저장 대학 목록 로드 실패: ${data.message || '오류'}</p>`;
                 }
@@ -494,7 +603,7 @@ badgeContainer.appendChild(questBadge);
         };
 
         // --- 5. 모달 내 대학 목록 렌더링 ---
-        const renderSavedUniList = (universities) => {
+        const renderSavedUniList = (universities, accountId, studentName) => {
             modalSavedUniList.innerHTML = ''; // 로딩 메시지 제거
             if (universities.length === 0) {
                 modalSavedUniList.innerHTML = '<p class="no-data">저장한 대학이 없습니다.</p>';
@@ -513,6 +622,17 @@ badgeContainer.appendChild(questBadge);
                     ? `${uni.calculated_suneung_score}점` : '미계산';
                 item.querySelector('.score').textContent = `수능점수: ${scoreText}`;
 
+                // ⭐️ 비율 정보 표시
+                item.querySelector('.ratio-suneung').textContent = `${uni.수능비율 || 0}%`;
+                item.querySelector('.ratio-naeshin').textContent = `${uni.내신비율 || 0}%`;
+                item.querySelector('.ratio-silgi').textContent = `${uni.실기비율 || 0}%`;
+
+                // ⭐️ 컷 정보 표시
+                const supportCut = (uni.지원컷 !== null && uni.지원컷 !== undefined) ? `${uni.지원컷}점` : '-';
+                const totalCut = (uni.총점컷 !== null && uni.총점컷 !== undefined) ? `${uni.총점컷}점` : '-';
+                item.querySelector('.cutline-support').textContent = supportCut;
+                item.querySelector('.cutline-total').textContent = totalCut;
+
                 // ⭐️ 실기 종목 표시 (배열 확인)
                 const eventsList = item.querySelector('.events-list');
                 // uni.events가 배열이고 비어있지 않은지 확인
@@ -523,7 +643,85 @@ badgeContainer.appendChild(questBadge);
                     eventsList.style.color = 'var(--text-secondary)';
                 }
 
+                // ⭐️ 클릭 이벤트 추가 - 학생 기록 보기
+                item.addEventListener('click', () => {
+                    openRecordModal(accountId, studentName, uni.대학명, uni.학과명);
+                });
+
                 modalSavedUniList.appendChild(item);
+            });
+        };
+
+        // --- 6. 학생 기록 모달 열기 ---
+        window.openRecordModal = async (accountId, studentName, uniName, deptName) => {
+            if (!accountId) return;
+
+            const selectedYear = yearSelect.value;
+            modalRecordTitle.textContent = `${studentName} - ${uniName} ${deptName}`;
+            modalRecordList.innerHTML = '<p class="loading"><i class="fas fa-spinner fa-spin"></i> 기록 로딩 중...</p>';
+            studentRecordModal.classList.add('show');
+
+            try {
+                // ⭐️ API 호출: 학생의 기록 조회
+                const data = await apiCall(`${SVR_JUNGSI}/jungsi/teacher/student-score-history/${accountId}/${selectedYear}`);
+
+                if (data.success && data.history) {
+                    renderRecordHistory(data.history);
+                } else {
+                     modalRecordList.innerHTML = `<p class="no-data">기록 로드 실패: ${data.message || '오류'}</p>`;
+                }
+            } catch (err) {
+                console.error('학생 기록 로딩 오류:', err);
+                if (err.message !== '로그인 만료' && err.message !== '인증 오류') {
+                    modalRecordList.innerHTML = `<p class="no-data">오류 발생: ${err.message}</p>`;
+                } else {
+                    closeRecordModal(); // 인증 오류 시 모달 닫기
+                }
+            }
+        };
+
+        // --- 7. 기록 모달 닫기 ---
+        window.closeRecordModal = () => {
+            studentRecordModal.classList.remove('show');
+        };
+
+        // --- 8. 기록 내역 렌더링 ---
+        const renderRecordHistory = (history) => {
+            modalRecordList.innerHTML = ''; // 로딩 메시지 제거
+            if (history.length === 0) {
+                modalRecordList.innerHTML = '<p class="no-data">저장된 기록이 없습니다.</p>';
+                return;
+            }
+
+            const template = document.getElementById('recordHistoryItemTemplate');
+            history.forEach(record => {
+                const item = template.content.cloneNode(true).firstElementChild;
+
+                // 날짜 포맷팅
+                const recordDate = new Date(record.record_date);
+                const dateStr = recordDate.toLocaleDateString('ko-KR', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                });
+                item.querySelector('.record-date').textContent = dateStr;
+
+                // 점수 표시
+                const suneungScore = (record.suneung_score !== null && record.suneung_score !== undefined)
+                    ? parseFloat(record.suneung_score).toFixed(2) : '0.00';
+                const naeshinScore = (record.naeshin_score !== null && record.naeshin_score !== undefined)
+                    ? parseFloat(record.naeshin_score).toFixed(2) : '0.00';
+                const silgiScore = (record.silgi_score !== null && record.silgi_score !== undefined)
+                    ? parseFloat(record.silgi_score).toFixed(2) : '0.00';
+                const totalScore = (record.total_score !== null && record.total_score !== undefined)
+                    ? parseFloat(record.total_score).toFixed(2) : '0.00';
+
+                item.querySelector('.score-suneung').textContent = `${suneungScore}점`;
+                item.querySelector('.score-naeshin').textContent = `${naeshinScore}점`;
+                item.querySelector('.score-silgi').textContent = `${silgiScore}점`;
+                item.querySelector('.total-value').textContent = `${totalScore}점`;
+
+                modalRecordList.appendChild(item);
             });
         };
 
@@ -537,5 +735,4 @@ badgeContainer.appendChild(questBadge);
 </script>
 
 </body>
-
 </html>
