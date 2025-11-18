@@ -403,18 +403,34 @@
 
         // --- 7. 삭제 ---
         const deleteExercise = async (id, name) => {
-            if (!confirm(`[${name}] 운동을 정말 삭제하시겠습니까?\n(학생들에게 할당된 내역이 있다면 오류가 발생할 수 있습니다.)`)) {
-                return;
-            }
-
             try {
+                // ⭐️ [신규] 먼저 사용 여부 확인
+                const usageData = await apiCall(`${SVR_JUNGSI}/jungsi/admin/master-exercises/${id}/check-usage`);
+
+                if (usageData.success && usageData.inUse) {
+                    // 사용 중인 경우 - 삭제 불가, 경고 표시
+                    alert(
+                        `❌ 삭제할 수 없습니다!\n\n` +
+                        `[${name}] 퀘스트는 현재 ${usageData.assignmentCount}건의 학생 할당 내역에서 사용 중입니다.\n\n` +
+                        `💡 대신 '비활성화'를 사용하여 새로운 할당에서 숨길 수 있습니다.`
+                    );
+                    return;
+                }
+
+                // 사용 중이 아닌 경우 - 삭제 진행
+                if (!confirm(`[${name}] 퀘스트를 정말 삭제하시겠습니까?`)) {
+                    return;
+                }
+
                 await apiCall(`${SVR_JUNGSI}/jungsi/admin/master-exercises/${id}`, {
                     method: 'DELETE'
                 });
-                showToast('🗑️ 운동이 삭제되었습니다.', true);
+                showToast('🗑️ 퀘스트가 삭제되었습니다.', true);
                 loadAllExercises(); // 목록 새로고침
+
             } catch (err) {
                  console.error('deleteExercise error caught:', err.message);
+                 // apiCall에서 이미 토스트 표시됨
             }
         };
 
