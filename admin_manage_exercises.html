@@ -110,6 +110,10 @@
                 <datalist id="subCategoryDatalist"></datalist>
             </div>
             <div class="form-group">
+                <label for="exerciseExpValue">획득 경험치 (EXP) ⭐</label>
+                <input type="number" id="exerciseExpValue" min="1" max="100" value="1" placeholder="1">
+            </div>
+            <div class="form-group">
                 <label for="exerciseStatus">상태</label>
                 <select id="exerciseStatus">
                     <option value="1">활성화 (보여주기)</option>
@@ -134,13 +138,14 @@
                         <th>운동명</th>
                         <th>카테고리</th>
                         <th>세부</th>
+                        <th>경험치</th>
                         <th>상태</th>
                         <th>관리</th>
                     </tr>
                 </thead>
                 <tbody id="exerciseListBody">
                     <tr>
-                        <td colspan="5" class="loading" id="listLoading"><i class="fas fa-spinner fa-spin"></i> 목록 로딩 중...</td>
+                        <td colspan="6" class="loading" id="listLoading"><i class="fas fa-spinner fa-spin"></i> 목록 로딩 중...</td>
                     </tr>
                 </tbody>
             </table>
@@ -153,6 +158,7 @@
         <td class="name">운동명</td>
         <td class="category">카테고리</td>
         <td class="sub-category">세부</td>
+        <td class="exp-value" style="font-weight: 600; color: var(--primary-color);">+1 EXP</td>
         <td><span class="status-badge">상태</span></td>
         <td>
             <button type="button" class="btn btn-secondary btn-sm edit-btn">
@@ -177,6 +183,7 @@
         const exerciseName = document.getElementById('exerciseName');
         const exerciseCategory = document.getElementById('exerciseCategory');
         const exerciseSubCategory = document.getElementById('exerciseSubCategory');
+        const exerciseExpValue = document.getElementById('exerciseExpValue');
         const exerciseStatus = document.getElementById('exerciseStatus');
         const categoryDatalist = document.getElementById('categoryDatalist');
         const subCategoryDatalist = document.getElementById('subCategoryDatalist');
@@ -274,7 +281,7 @@
             listLoading.style.display = 'none';
             exerciseListBody.innerHTML = '';
             if (exercises.length === 0) {
-                exerciseListBody.innerHTML = '<tr><td colspan="5" class="no-data">등록된 운동이 없습니다.</td></tr>';
+                exerciseListBody.innerHTML = '<tr><td colspan="6" class="no-data">등록된 운동이 없습니다.</td></tr>';
                 return;
             }
             
@@ -285,7 +292,8 @@
                 item.querySelector('.name').textContent = ex.exercise_name;
                 item.querySelector('.category').textContent = ex.category || '-';
                 item.querySelector('.sub-category').textContent = ex.sub_category || '-';
-                
+                item.querySelector('.exp-value').textContent = `+${ex.exp_value || 1} EXP`;
+
                 const statusBadge = item.querySelector('.status-badge');
                 if (ex.is_active) {
                     statusBadge.textContent = '활성';
@@ -319,6 +327,7 @@
             exerciseName.value = '';
             exerciseCategory.value = '';
             exerciseSubCategory.value = '';
+            exerciseExpValue.value = '1'; // 기본값 1 EXP
             exerciseStatus.value = '1'; // 기본값 '활성화'
             saveExerciseBtn.innerHTML = '<i class="fas fa-save"></i> 저장하기';
             saveExerciseBtn.disabled = false;
@@ -332,6 +341,7 @@
             exerciseName.value = exercise.exercise_name;
             exerciseCategory.value = exercise.category || '';
             exerciseSubCategory.value = exercise.sub_category || '';
+            exerciseExpValue.value = exercise.exp_value || 1;
             exerciseStatus.value = exercise.is_active ? '1' : '0';
             saveExerciseBtn.innerHTML = '<i class="fas fa-edit"></i> 수정 완료';
             cancelEditBtn.style.display = 'inline-flex';
@@ -344,10 +354,16 @@
             const name = exerciseName.value.trim();
             const category = exerciseCategory.value.trim() || 'Other';
             const subCategory = exerciseSubCategory.value.trim() || null;
+            const expValue = parseInt(exerciseExpValue.value) || 1;
             const isActive = exerciseStatus.value === '1';
 
             if (!name) {
                 showToast('운동명은 필수입니다.', false);
+                return;
+            }
+
+            if (expValue < 1 || expValue > 100) {
+                showToast('경험치는 1~100 사이로 설정해주세요.', false);
                 return;
             }
 
@@ -367,8 +383,8 @@
                         exercise_name: name,
                         category: category,
                         sub_category: subCategory,
+                        exp_value: expValue,
                         is_active: isActive
-                        // default_unit은 이 폼에서 관리 안 함 (필요 시 추가)
                     })
                 });
 
