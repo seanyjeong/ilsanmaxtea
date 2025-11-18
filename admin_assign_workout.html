@@ -34,6 +34,47 @@
         .btn-primary { background: var(--primary-color); color: #fff; }
         .btn-primary:hover { background: var(--primary-dark); }
         .btn-primary:disabled { background: #9ca3af; cursor: not-allowed; opacity: 0.7; }
+
+        /* ⭐️ [신규] 학생 다중 선택 UI */
+        .student-selector-wrapper { position: relative; min-width: 200px; }
+        .student-selector-button {
+            padding: 8px 10px; border: 1px solid var(--border-color);
+            border-radius: 6px; background: #fff; font-size: .95rem;
+            cursor: pointer; display: flex; justify-content: space-between; align-items: center;
+            min-width: 200px;
+        }
+        .student-selector-button:hover { background: var(--light-bg); }
+        .student-dropdown {
+            display: none; position: absolute; top: 100%; left: 0; right: 0;
+            background: #fff; border: 1px solid var(--border-color);
+            border-radius: 6px; box-shadow: var(--shadow);
+            max-height: 300px; overflow-y: auto; z-index: 100;
+            margin-top: 4px;
+        }
+        .student-dropdown.show { display: block; }
+        .student-dropdown-item {
+            padding: 8px 12px; cursor: pointer; display: flex; align-items: center; gap: 8px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .student-dropdown-item:last-child { border-bottom: none; }
+        .student-dropdown-item:hover { background: var(--light-bg); }
+        .student-dropdown-item input[type="checkbox"] { cursor: pointer; }
+        .student-dropdown-header {
+            padding: 8px 12px; background: var(--light-bg); font-weight: 600;
+            font-size: 0.85rem; color: var(--text-secondary);
+            border-bottom: 1px solid var(--border-color);
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .select-all-btn {
+            font-size: 0.8rem; color: var(--primary-color); cursor: pointer;
+            padding: 2px 6px; border-radius: 4px;
+        }
+        .select-all-btn:hover { background: var(--primary-color); color: #fff; }
+        .selected-count {
+            background: var(--primary-color); color: #fff;
+            padding: 2px 8px; border-radius: 12px; font-size: 0.8rem;
+            margin-left: 6px;
+        }
         
         /* ⭐️ [수정] .btn-secondary 기본 스타일 (전날 불러오기 버튼용) */
         .btn-secondary {
@@ -202,10 +243,22 @@
                 </select>
             </div>
              <div class="chip">
-                <label for="student-select"><i class="fas fa-user-graduate"></i> 학생</label>
-                <select id="student-select">
-                    <option value="">- 학년도 선택 -</option>
-                </select>
+                <label><i class="fas fa-user-graduate"></i> 학생</label>
+                <div class="student-selector-wrapper">
+                    <div class="student-selector-button" id="studentSelectorButton">
+                        <span id="studentSelectorText">- 학년도 선택 -</span>
+                        <i class="fas fa-chevron-down"></i>
+                    </div>
+                    <div class="student-dropdown" id="studentDropdown">
+                        <div class="student-dropdown-header">
+                            <span>학생 선택</span>
+                            <span class="select-all-btn" id="selectAllBtn">전체 선택</span>
+                        </div>
+                        <div id="studentDropdownList">
+                            <!-- 학생 목록이 여기에 동적으로 추가됩니다 -->
+                        </div>
+                    </div>
+                </div>
             </div>
              <div class="chip">
                 <label for="date-select"><i class="fas fa-calendar-day"></i> 할당 날짜</label>
@@ -293,7 +346,11 @@
 
         // --- HTML 요소 ---
         const yearSelect = document.getElementById('year-select');
-        const studentSelect = document.getElementById('student-select');
+        const studentSelectorButton = document.getElementById('studentSelectorButton');
+        const studentSelectorText = document.getElementById('studentSelectorText');
+        const studentDropdown = document.getElementById('studentDropdown');
+        const studentDropdownList = document.getElementById('studentDropdownList');
+        const selectAllBtn = document.getElementById('selectAllBtn');
         const dateSelect = document.getElementById('date-select');
         const categorySelector = document.getElementById('categorySelector');
         const subCategorySelector = document.getElementById('subCategorySelector');
@@ -305,6 +362,7 @@
         const clearAssignmentsBtn = document.getElementById('clearAssignmentsBtn'); // ⭐️ [신규]
 
         let myStudents = [];
+        let selectedStudentIds = []; // ⭐️ [신규] 선택된 학생 ID 목록
         let masterExercises = [];
         let groupedExercises = {};
 
@@ -374,36 +432,117 @@ const showToast = (message, isSuccess = true, duration = 3000) => { // ⭐️ du
 
         // --- 1. 내 담당 학생 목록 로드 ---
         const loadMyStudents = async () => {
-            // ... (기존과 동일) ...
             const selectedYear = yearSelect.value;
-            studentSelect.innerHTML = '<option value="">- 학생 로딩 중 -</option>';
-            studentSelect.disabled = true;
-            
+            studentSelectorText.textContent = '- 학생 로딩 중 -';
+            studentDropdownList.innerHTML = '';
+            selectedStudentIds = [];
+
             renderAssignmentListPlaceholder('학생을 선택하면 퀘스트 내용을 볼 수 있습니다.');
             checkSaveButtonStatus(); // ⭐️ 버튼 상태 갱신
-            
+
             try {
                 const data = await apiCall(`${SVR_JUNGSI}/jungsi/teacher/my-students?year=${selectedYear}`);
                 if (data.success && data.students) {
                     myStudents = data.students;
-                    studentSelect.innerHTML = '<option value="">- 학생 선택 -</option>';
+
+                    if (myStudents.length === 0) {
+                        studentSelectorText.textContent = '- 학생 없음 -';
+                        return;
+                    }
+
+                    // ⭐️ [신규] 체크박스 목록 생성
+                    studentDropdownList.innerHTML = '';
                     myStudents.forEach(student => {
-                        const option = document.createElement('option');
-                        option.value = student.account_id;
-                        option.textContent = `${student.student_name} (${student.class_name || '반 미배정'})`;
-                        studentSelect.appendChild(option);
+                        const item = document.createElement('div');
+                        item.className = 'student-dropdown-item';
+
+                        const checkbox = document.createElement('input');
+                        checkbox.type = 'checkbox';
+                        checkbox.value = student.account_id;
+                        checkbox.id = `student-${student.account_id}`;
+                        checkbox.addEventListener('change', handleStudentSelectionChange);
+
+                        const label = document.createElement('label');
+                        label.htmlFor = `student-${student.account_id}`;
+                        label.textContent = `${student.student_name} (${student.class_name || '반 미배정'})`;
+                        label.style.cursor = 'pointer';
+                        label.style.flex = '1';
+
+                        item.appendChild(checkbox);
+                        item.appendChild(label);
+                        studentDropdownList.appendChild(item);
                     });
-                    studentSelect.disabled = false;
+
+                    studentSelectorText.textContent = '- 학생 선택 -';
                 } else {
-                    studentSelect.innerHTML = '<option value="">- 학생 없음 -</option>';
+                    studentSelectorText.textContent = '- 학생 없음 -';
                 }
             } catch (err) {
                 console.error('담당 학생 목록 로딩 오류:', err);
-                studentSelect.innerHTML = '<option value="">- 로드 오류 -</option>';
-                // apiCall에서 이미 토스트 띄움
+                studentSelectorText.textContent = '- 로드 오류 -';
             }
         };
         
+        // --- ⭐️ [신규] 1-1. 학생 선택 관련 함수들 ---
+        const handleStudentSelectionChange = () => {
+            // 체크된 학생 ID 목록 업데이트
+            const checkboxes = studentDropdownList.querySelectorAll('input[type="checkbox"]:checked');
+            selectedStudentIds = Array.from(checkboxes).map(cb => parseInt(cb.value));
+
+            // 버튼 텍스트 업데이트
+            updateStudentSelectorText();
+
+            // 기존 할당 내역 로드 (단일 학생 선택 시에만)
+            if (selectedStudentIds.length === 1) {
+                loadExistingAssignments();
+            } else if (selectedStudentIds.length > 1) {
+                // 여러 학생 선택 시 기존 할당 내역 초기화
+                assignmentList.innerHTML = '';
+                renderAssignmentListPlaceholder('여러 학생에게 동일한 퀘스트를 할당합니다. 퀘스트를 추가하세요.');
+            } else {
+                // 아무도 선택하지 않은 경우
+                assignmentList.innerHTML = '';
+                renderAssignmentListPlaceholder('학생을 선택하면 퀘스트 내용을 볼 수 있습니다.');
+            }
+
+            checkSaveButtonStatus();
+        };
+
+        const updateStudentSelectorText = () => {
+            const count = selectedStudentIds.length;
+            if (count === 0) {
+                studentSelectorText.innerHTML = '- 학생 선택 -';
+            } else if (count === 1) {
+                const student = myStudents.find(s => s.account_id === selectedStudentIds[0]);
+                studentSelectorText.innerHTML = `${student.student_name} <span class="selected-count">1</span>`;
+            } else {
+                studentSelectorText.innerHTML = `${count}명 선택됨 <span class="selected-count">${count}</span>`;
+            }
+        };
+
+        const toggleStudentDropdown = () => {
+            studentDropdown.classList.toggle('show');
+        };
+
+        const handleSelectAll = () => {
+            const checkboxes = studentDropdownList.querySelectorAll('input[type="checkbox"]');
+            const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+
+            checkboxes.forEach(cb => {
+                cb.checked = !allChecked;
+            });
+
+            selectAllBtn.textContent = allChecked ? '전체 선택' : '전체 해제';
+            handleStudentSelectionChange();
+        };
+
+        // 드롭다운 외부 클릭 시 닫기
+        document.addEventListener('click', (e) => {
+            if (!studentSelectorButton.contains(e.target) && !studentDropdown.contains(e.target)) {
+                studentDropdown.classList.remove('show');
+            }
+        });
+
         // --- 2. 운동 마스터 목록 로드 및 카테고리 버튼 생성 ---
         const loadMasterExercises = async () => {
             // ... (기존과 동일) ...
@@ -617,40 +756,49 @@ const showToast = (message, isSuccess = true, duration = 3000) => { // ⭐️ du
         
         // --- 4. ⭐️ [수정] 버튼 활성화/비활성화 체크 ---
         const checkSaveButtonStatus = () => {
-            const studentId = studentSelect.value;
             const assignmentDate = dateSelect.value;
-            if (studentId && assignmentDate) {
+            const hasStudents = selectedStudentIds.length > 0;
+
+            if (hasStudents && assignmentDate) {
                  saveAssignmentsBtn.disabled = false;
-                 loadPrevDayBtn.disabled = false; // ⭐️ 전날 불러오기 활성화
+                 // ⭐️ 전날 불러오기는 단일 학생 선택 시에만 활성화
+                 loadPrevDayBtn.disabled = selectedStudentIds.length !== 1;
             } else {
                  saveAssignmentsBtn.disabled = true;
-                 loadPrevDayBtn.disabled = true; // ⭐️ 전날 불러오기 비활성화
+                 loadPrevDayBtn.disabled = true;
             }
-            
+
             // ⭐️ 로딩 중 아닐 때 항상 텍스트 복구
             if (!loadPrevDayBtn.disabled && !loadPrevDayBtn.querySelector('.fa-spin')) {
                  loadPrevDayBtn.innerHTML = '<i class="fas fa-history"></i> 전날 운동 불러오기';
             }
         };
 
-        // --- 5. ⭐️ [수정] 기존 퀘스트 목록 불러오기 ---
+        // --- 5. ⭐️ [수정] 기존 퀘스트 목록 불러오기 (단일 학생만 지원) ---
         const loadExistingAssignments = async () => {
-            const studentId = studentSelect.value;
             const assignmentDate = dateSelect.value;
-            
+
             checkSaveButtonStatus(); // ⭐️ 버튼 상태(disabled 여부)는 여기서 먼저 결정
 
-            if (!studentId || !assignmentDate) {
-                renderAssignmentListPlaceholder('학생과 날짜를 선택하세요.');
-                return; // ⭐️ 함수 종료
+            // ⭐️ 다중 선택 시에는 로드하지 않음
+            if (selectedStudentIds.length !== 1 || !assignmentDate) {
+                if (selectedStudentIds.length === 0) {
+                    renderAssignmentListPlaceholder('학생을 선택하세요.');
+                } else if (selectedStudentIds.length > 1) {
+                    renderAssignmentListPlaceholder('여러 학생에게 동일한 퀘스트를 할당합니다. 퀘스트를 추가하세요.');
+                } else {
+                    renderAssignmentListPlaceholder('날짜를 선택하세요.');
+                }
+                return;
             }
-            
+
+            const studentId = selectedStudentIds[0];
             loadPrevDayBtn.disabled = true; // ⭐️ '전날 불러오기' 버튼만 일시적으로 비활성화 (로딩 중)
             renderAssignmentListPlaceholder('기존 퀘스트 로딩 중...', true);
 
             try {
                 const data = await apiCall(`${SVR_JUNGSI}/jungsi/teacher/assignments/${studentId}/${assignmentDate}`);
-                
+
                 if (data.success && data.assignments) {
                     assignmentList.innerHTML = ''; // ⭐️ 로딩 메시지 제거
                     if (data.assignments.length === 0) {
@@ -668,18 +816,20 @@ const showToast = (message, isSuccess = true, duration = 3000) => { // ⭐️ du
                  // apiCall에서 이미 토스트 띄움
             } finally {
                 // ⭐️ try/catch 상관없이 '전날 불러오기' 버튼 상태 복구
-                checkSaveButtonStatus(); 
+                checkSaveButtonStatus();
             }
         };
         
-        // --- ⭐️ [신규] 5-1. 전날 운동 불러오기 함수 ---
+        // --- ⭐️ [신규] 5-1. 전날 운동 불러오기 함수 (단일 학생만 지원) ---
         const loadPreviousDayAssignments = async () => {
-            const studentId = studentSelect.value;
             const currentDateStr = dateSelect.value;
-            if (!studentId || !currentDateStr) {
-                showToast('먼저 학생과 날짜를 선택하세요.', false);
+
+            if (selectedStudentIds.length !== 1 || !currentDateStr) {
+                showToast('단일 학생 선택 시에만 전날 운동을 불러올 수 있습니다.', false);
                 return;
             }
+
+            const studentId = selectedStudentIds[0];
 
             // 1. 어제 날짜 계산
             const currentDate = new Date(currentDateStr);
@@ -723,17 +873,18 @@ const showToast = (message, isSuccess = true, duration = 3000) => { // ⭐️ du
         };
 
 
-        // --- 6. 최종 할당 저장 함수 ---
+        // --- 6. ⭐️ [수정] 최종 할당 저장 함수 (다중 학생 지원) ---
         const saveAssignments = async () => {
-            // ... (기존과 동일) ...
-            const studentId = studentSelect.value;
             const assignmentDate = dateSelect.value;
-            if (!studentId || !assignmentDate) {
+
+            if (selectedStudentIds.length === 0 || !assignmentDate) {
                 showToast('학생과 할당 날짜를 모두 선택해야 합니다.', false);
                 return;
             }
+
             saveAssignmentsBtn.disabled = true;
             saveAssignmentsBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 저장 중...';
+
             const assignments = [];
             assignmentList.querySelectorAll('.assignment-item').forEach(item => {
                 const exerciseData = masterExercises.find(ex => ex.exercise_id == item.dataset.exerciseId);
@@ -748,20 +899,39 @@ const showToast = (message, isSuccess = true, duration = 3000) => { // ⭐️ du
                     target_notes: item.querySelector('input[name="target_notes"]').value || null,
                 });
             });
-            console.log('Saving assignments:', assignments);
+
+            console.log(`Saving assignments to ${selectedStudentIds.length} students:`, assignments);
+
             try {
                 const data = await apiCall(`${SVR_JUNGSI}/jungsi/teacher/assign-workout`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        student_account_id: parseInt(studentId),
+                        student_account_ids: selectedStudentIds, // ⭐️ 다중 학생 ID 배열
                         assignment_date: assignmentDate,
                         assignments: assignments
                     })
                 });
+
                 if (data.success) {
-                    showToast(assignments.length > 0 ? '✅ 학생의 데일리 운동이 저장되었습니다.' : '✅ 학생의 오늘 운동이 초기화되었습니다.', true);
-                    resetSelections(); // ⭐️ (수정) 카테고리 선택 초기화 (기존 코드)
+                    const successCount = data.success_count || selectedStudentIds.length;
+                    const failedCount = data.failed_count || 0;
+
+                    if (failedCount === 0) {
+                        showToast(`✅ ${successCount}명의 학생에게 데일리 운동이 저장되었습니다.`, true);
+                    } else {
+                        showToast(`⚠️ ${successCount}명 성공, ${failedCount}명 실패했습니다.`, false);
+                    }
+
+                    // ⭐️ 결과 상세 내역이 있으면 콘솔에 출력
+                    if (data.results) {
+                        console.log('할당 결과:', data.results);
+                        if (data.results.failed && data.results.failed.length > 0) {
+                            console.warn('실패한 학생:', data.results.failed);
+                        }
+                    }
+
+                    resetSelections(); // 카테고리 선택 초기화
                 } else {
                     showToast(`❌ 저장 실패: ${data.message || '알 수 없는 오류'}`, false);
                 }
@@ -776,7 +946,8 @@ const showToast = (message, isSuccess = true, duration = 3000) => { // ⭐️ du
 
         // --- 7. ⭐️ [수정] 이벤트 리스너 연결 ---
         yearSelect.addEventListener('change', loadMyStudents);
-        studentSelect.addEventListener('change', loadExistingAssignments);
+        studentSelectorButton.addEventListener('click', toggleStudentDropdown); // ⭐️ [신규]
+        selectAllBtn.addEventListener('click', handleSelectAll); // ⭐️ [신규]
         dateSelect.addEventListener('change', loadExistingAssignments);
         saveAssignmentsBtn.addEventListener('click', saveAssignments);
         loadPrevDayBtn.addEventListener('click', loadPreviousDayAssignments); // ⭐️ [신규]
