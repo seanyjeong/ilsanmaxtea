@@ -170,6 +170,12 @@
             background: none; border: none; color: var(--danger-color);
             font-size: 1.2rem; cursor: pointer; padding: 5px;
         }
+        .delete-exercise-btn:disabled {
+            color: #9ca3af; cursor: not-allowed; opacity: 0.5;
+        }
+        .delete-exercise-btn[data-is-completed="true"] {
+            color: #9ca3af; cursor: not-allowed; opacity: 0.5;
+        }
         .input-grid {
             grid-column: 1 / 2;
             display: grid; grid-template-columns: repeat(auto-fit, minmax(60px, 1fr));
@@ -694,7 +700,7 @@ const showToast = (message, isSuccess = true, duration = 3000) => { // ⭐️ du
             // ... (기존과 동일) ...
             const masterEx = masterExercises.find(ex => ex.exercise_name === assignmentData.exercise_name);
             const exerciseId = masterEx ? masterEx.exercise_id : null;
-            
+
             if (!exerciseId) {
                 console.warn(`Skipping render for unknown/deleted exercise: ${assignmentData.exercise_name}`);
                 return;
@@ -705,7 +711,7 @@ const showToast = (message, isSuccess = true, duration = 3000) => { // ⭐️ du
 
             const template = document.getElementById('assignmentItemTemplate');
             const newItem = template.content.cloneNode(true).firstElementChild;
-            
+
             newItem.dataset.exerciseId = exerciseId;
             newItem.querySelector('.exercise-name').textContent = assignmentData.exercise_name;
             newItem.querySelector('.category').textContent = `[${assignmentData.category} / ${assignmentData.sub_category || '기타'}]`;
@@ -718,7 +724,18 @@ const showToast = (message, isSuccess = true, duration = 3000) => { // ⭐️ du
                  const weightInput = newItem.querySelector('input[name="target_weight"]');
                  if (weightInput) { weightInput.disabled = true; weightInput.placeholder = '-'; }
             }
-            
+
+            // ⭐️ [신규] 완료된 퀘스트는 삭제 버튼 비활성화
+            const deleteBtn = newItem.querySelector('.delete-exercise-btn');
+            if (assignmentData.is_completed) {
+                deleteBtn.disabled = true;
+                deleteBtn.dataset.isCompleted = 'true';
+                deleteBtn.title = '완료된 퀘스트는 삭제할 수 없습니다';
+                // 완료 표시 추가 (운동명 옆에 체크 아이콘)
+                const exerciseName = newItem.querySelector('.exercise-name');
+                exerciseName.innerHTML = `${assignmentData.exercise_name} <i class="fas fa-check-circle" style="color: var(--success-color); font-size: 0.9rem;" title="완료됨"></i>`;
+            }
+
             assignmentList.appendChild(newItem);
         };
         
