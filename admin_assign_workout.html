@@ -953,6 +953,7 @@ const showToast = (message, isSuccess = true, duration = 3000) => { // ⭐️ du
                     }
 
                     resetSelections(); // 카테고리 선택 초기화
+                    await loadMyStudents(); // ⭐️ 학생 목록 새로고침 (퀘스트 개수 갱신)
                 } else {
                     showToast(`❌ 저장 실패: ${data.message || '알 수 없는 오류'}`, false);
                 }
