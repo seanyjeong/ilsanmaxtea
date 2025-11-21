@@ -470,7 +470,10 @@ const showToast = (message, isSuccess = true, duration = 3000) => { // ⭐️ du
 
                         const label = document.createElement('label');
                         label.htmlFor = `student-${student.account_id}`;
-                        label.textContent = `${student.student_name} (${student.class_name || '반 미배정'})`;
+                        // ⭐️ 오늘 할당된 퀘스트 개수 표시
+                        const questCount = student.today_total_assignments || 0;
+                        const questText = questCount > 0 ? ` [${questCount}]` : '';
+                        label.textContent = `${student.student_name} (${student.class_name || '반 미배정'})${questText}`;
                         label.style.cursor = 'pointer';
                         label.style.flex = '1';
 
@@ -992,4 +995,3 @@ const showToast = (message, isSuccess = true, duration = 3000) => { // ⭐️ du
 
 </body>
 </html>
-
