@@ -869,6 +869,7 @@ const showToast = (message, isSuccess = true, duration = 3000) => { // ⭐️ du
                         // 3. '현재 목록'을 비우고 '어제 목록'으로 렌더링
                         assignmentList.innerHTML = ''; // 기존 목록 싹 비우기
                         assignmentListPlaceholder.style.display = 'none';
+                         data.assignments.forEach(a => { a.is_completed = false; });
                         data.assignments.forEach(renderExistingAssignment);
                         // ⭐️ 3초 -> 4초로 변경 (긴 메시지)
                         showToast(`✅ 전날(${prevDateStr}) 운동 ${data.assignments.length}개를 불러왔습니다. '저장하기'를 눌러야 오늘 날짜로 할당됩니다.`, true, 4000); // ⭐️ 4초로 연장
@@ -991,3 +992,4 @@ const showToast = (message, isSuccess = true, duration = 3000) => { // ⭐️ du
 
 </body>
 </html>
+
