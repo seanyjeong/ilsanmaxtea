@@ -84,6 +84,96 @@
         .btn-secondary:hover:not(:disabled) { background: var(--border-color); }
         .btn-secondary:disabled { background: #f1f5f9; color: #9ca3af; cursor: not-allowed; opacity: 0.7; }
 
+        /* ⭐️ [신규] 자동분배 버튼 스타일 */
+        .btn-auto { background: var(--success-color); color: #fff; }
+        .btn-auto:hover:not(:disabled) { background: #059669; }
+        .btn-auto:disabled { background: #9ca3af; cursor: not-allowed; opacity: 0.7; }
+
+        /* ⭐️ [신규] 종목 선택 체크박스 스타일 - 개선된 버전 */
+        .event-selector {
+            display: flex; flex-wrap: wrap; gap: 8px;
+            padding: 15px; background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            border: 1px solid var(--border-color); border-radius: 12px;
+            margin-bottom: 15px;
+        }
+        .event-checkbox-item {
+            display: flex; align-items: center; justify-content: center;
+            min-width: 70px; padding: 12px 16px; border-radius: 25px;
+            border: 2px solid var(--border-color); cursor: pointer;
+            transition: all 0.3s ease;
+            background: #fff;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .event-checkbox-item:hover {
+            border-color: var(--primary-color);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(37, 99, 235, 0.15);
+        }
+        .event-checkbox-item.checked {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+            color: #fff;
+            border-color: var(--primary-dark);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+            transform: translateY(-2px);
+        }
+        .event-checkbox-item input[type="checkbox"] { display: none; }
+        .event-checkbox-item label {
+            cursor: pointer; font-weight: 600; font-size: 0.95rem;
+            user-select: none;
+        }
+
+        /* ⭐️ [신규] 자동분배 모달 스타일 */
+        .modal-overlay {
+            display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5); z-index: 1000;
+            justify-content: center; align-items: center;
+        }
+        .modal-overlay.show { display: flex; }
+        .modal-content {
+            background: #fff; border-radius: 12px; padding: 20px;
+            max-width: 500px; width: 90%; max-height: 80vh; overflow-y: auto;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        .modal-header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid var(--border-color);
+        }
+        .modal-header h3 { margin: 0; font-size: 1.2rem; color: var(--primary-color); }
+        .modal-close { background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-secondary); }
+        .modal-body { margin-bottom: 15px; }
+        .modal-body label { display: block; font-weight: 600; margin-bottom: 8px; color: var(--text-secondary); }
+        .modal-body label i { margin-right: 6px; color: var(--primary-color); }
+        .modal-footer { display: flex; justify-content: flex-end; gap: 10px; }
+
+        /* ⭐️ [신규] 안내 박스 스타일 */
+        .info-box {
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            border: 1px solid #f59e0b;
+            border-radius: 10px;
+            padding: 12px 15px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+        }
+        .info-box i {
+            color: #d97706;
+            font-size: 1.1rem;
+            margin-top: 2px;
+        }
+        .info-box-content {
+            flex: 1;
+        }
+        .info-box-content p {
+            margin: 0;
+            font-size: 0.9rem;
+            color: #92400e;
+            line-height: 1.5;
+        }
+        .info-box-content p strong {
+            color: #78350f;
+        }
+
         .header-controls .btn-secondary {
             font-size: 0.8rem; padding: 8px 10px;
         }
@@ -232,6 +322,9 @@
     <div class="header">
         <h1><i class="fas fa-clipboard-list"></i> 일일퀘스트 할당</h1>
         <div class="header-controls">
+            <button type="button" id="openAutoAssignModal" class="btn btn-auto">
+                <i class="fas fa-magic"></i> 자동 운동 분배
+            </button>
             <a href="admin_manage_exercises.html" class="btn btn-secondary">
                 <i class="fas fa-cog"></i> 퀘스트 목록 관리
             </a>
@@ -312,6 +405,47 @@
     </div>
 </div>
 
+<!-- ⭐️ [신규] 자동 운동 분배 모달 -->
+<div class="modal-overlay" id="autoAssignModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3><i class="fas fa-magic"></i> 자동 운동 분배</h3>
+            <button type="button" class="modal-close" id="closeAutoAssignModal">&times;</button>
+        </div>
+        <div class="modal-body">
+            <!-- 안내 박스 -->
+            <div class="info-box">
+                <i class="fas fa-exclamation-triangle"></i>
+                <div class="info-box-content">
+                    <p>선택한 종목별로 <strong>2~3개의 운동</strong>이 랜덤 배정됩니다.</p>
+                    <p style="margin-top: 5px;"><strong>세트/횟수는 자동 분배 후 직접 설정</strong>해주세요!</p>
+                </div>
+            </div>
+
+            <label><i class="fas fa-running"></i> 종목 선택 (클릭하여 선택)</label>
+            <div class="event-selector" id="eventSelector">
+                <p style="color: var(--text-secondary); font-size: 0.9rem;">종목 목록 로딩 중...</p>
+            </div>
+
+            <label><i class="fas fa-users"></i> 선택된 학생</label>
+            <div id="selectedStudentsPreview" style="padding: 12px; background: #f8fafc; border-radius: 8px; margin-bottom: 15px; font-size: 0.9rem; color: var(--text-secondary); border: 1px solid var(--border-color);">
+                학생을 먼저 선택해주세요.
+            </div>
+
+            <label><i class="fas fa-calendar"></i> 할당 날짜</label>
+            <div id="selectedDatePreview" style="padding: 12px; background: #f8fafc; border-radius: 8px; font-size: 0.95rem; font-weight: 600; border: 1px solid var(--border-color);">
+                -
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" id="cancelAutoAssign">취소</button>
+            <button type="button" class="btn btn-auto" id="confirmAutoAssign" disabled>
+                <i class="fas fa-magic"></i> 자동 분배 실행
+            </button>
+        </div>
+    </div>
+</div>
+
 <template id="assignmentItemTemplate">
     <li class="assignment-item" data-exercise-id="{{exercise_id}}">
         <h5>
@@ -367,10 +501,22 @@
         const loadPrevDayBtn = document.getElementById('loadPrevDayBtn'); // ⭐️ [신규]
         const clearAssignmentsBtn = document.getElementById('clearAssignmentsBtn'); // ⭐️ [신규]
 
+        // ⭐️ [신규] 자동 분배 모달 요소들
+        const autoAssignModal = document.getElementById('autoAssignModal');
+        const openAutoAssignModalBtn = document.getElementById('openAutoAssignModal');
+        const closeAutoAssignModalBtn = document.getElementById('closeAutoAssignModal');
+        const cancelAutoAssignBtn = document.getElementById('cancelAutoAssign');
+        const confirmAutoAssignBtn = document.getElementById('confirmAutoAssign');
+        const eventSelector = document.getElementById('eventSelector');
+        const selectedStudentsPreview = document.getElementById('selectedStudentsPreview');
+        const selectedDatePreview = document.getElementById('selectedDatePreview');
+
         let myStudents = [];
         let selectedStudentIds = []; // ⭐️ [신규] 선택된 학생 ID 목록
         let masterExercises = [];
         let groupedExercises = {};
+        let practicalEvents = []; // ⭐️ [신규] 실기 종목 목록
+        let selectedEventIds = []; // ⭐️ [신규] 선택된 종목 ID 목록
 
         // --- 인증 확인 ---
         const getToken = () => localStorage.getItem('jwt_token');
@@ -986,10 +1132,199 @@ const showToast = (message, isSuccess = true, duration = 3000) => { // ⭐️ du
             exerciseButtonContainer.style.display = 'none';
         }
 
+        // =============================================
+        // ⭐️ [신규] 자동 운동 분배 관련 함수들
+        // =============================================
+
+        // --- 10. 실기 종목 목록 로드 ---
+        const loadPracticalEvents = async () => {
+            eventSelector.innerHTML = '<p style="color: var(--text-secondary); font-size: 0.9rem;">종목 로딩 중...</p>';
+            try {
+                const data = await apiCall(`${SVR_JUNGSI}/jungsi/practical-events`);
+                if (data.success && data.events) {
+                    practicalEvents = data.events;
+                    renderEventSelector(practicalEvents);
+                } else {
+                    eventSelector.innerHTML = '<p style="color: var(--danger-color); font-size: 0.9rem;">종목 로드 실패</p>';
+                }
+            } catch (err) {
+                console.error('실기 종목 로딩 오류:', err);
+                eventSelector.innerHTML = '<p style="color: var(--danger-color); font-size: 0.9rem;">종목 로드 오류</p>';
+            }
+        };
+
+        // --- 10-1. 종목 선택 UI 렌더링 ---
+        const renderEventSelector = (events) => {
+            eventSelector.innerHTML = '';
+            selectedEventIds = [];
+
+            if (events.length === 0) {
+                eventSelector.innerHTML = '<p style="color: var(--text-secondary); font-size: 0.9rem;">등록된 종목이 없습니다.</p>';
+                return;
+            }
+
+            events.forEach(event => {
+                const item = document.createElement('div');
+                item.className = 'event-checkbox-item';
+                item.dataset.eventId = event.event_id;
+
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.id = `event-${event.event_id}`;
+                checkbox.value = event.event_id;
+
+                const label = document.createElement('label');
+                label.htmlFor = `event-${event.event_id}`;
+                label.textContent = event.event_name;
+
+                item.appendChild(checkbox);
+                item.appendChild(label);
+
+                // 클릭 시 체크박스 토글 및 스타일 변경
+                item.addEventListener('click', (e) => {
+                    if (e.target.tagName !== 'INPUT') {
+                        checkbox.checked = !checkbox.checked;
+                    }
+                    item.classList.toggle('checked', checkbox.checked);
+                    handleEventSelectionChange();
+                });
+
+                eventSelector.appendChild(item);
+            });
+        };
+
+        // --- 10-2. 종목 선택 변경 핸들러 ---
+        const handleEventSelectionChange = () => {
+            const checkboxes = eventSelector.querySelectorAll('input[type="checkbox"]:checked');
+            selectedEventIds = Array.from(checkboxes).map(cb => parseInt(cb.value));
+            checkAutoAssignButtonStatus();
+        };
+
+        // --- 10-3. 자동 분배 버튼 상태 확인 ---
+        const checkAutoAssignButtonStatus = () => {
+            const hasStudents = selectedStudentIds.length > 0;
+            const hasDate = dateSelect.value !== '';
+            const hasEvents = selectedEventIds.length > 0;
+
+            confirmAutoAssignBtn.disabled = !(hasStudents && hasDate && hasEvents);
+        };
+
+        // --- 10-4. 모달 열기 ---
+        const openAutoAssignModal = () => {
+            // 선택된 학생 정보 표시
+            if (selectedStudentIds.length === 0) {
+                selectedStudentsPreview.innerHTML = '<span style="color: var(--danger-color);">⚠️ 학생을 먼저 선택해주세요.</span>';
+            } else {
+                const studentNames = selectedStudentIds.map(id => {
+                    const student = myStudents.find(s => s.account_id === id);
+                    return student ? student.student_name : `ID: ${id}`;
+                });
+                if (studentNames.length <= 5) {
+                    selectedStudentsPreview.innerHTML = `<strong>${studentNames.length}명 선택:</strong> ${studentNames.join(', ')}`;
+                } else {
+                    selectedStudentsPreview.innerHTML = `<strong>${studentNames.length}명 선택:</strong> ${studentNames.slice(0, 5).join(', ')} 외 ${studentNames.length - 5}명`;
+                }
+            }
+
+            // 선택된 날짜 표시
+            selectedDatePreview.textContent = dateSelect.value || '날짜를 선택해주세요';
+
+            // 종목 선택 초기화
+            selectedEventIds = [];
+            eventSelector.querySelectorAll('.event-checkbox-item').forEach(item => {
+                item.classList.remove('checked');
+                item.querySelector('input[type="checkbox"]').checked = false;
+            });
+
+            checkAutoAssignButtonStatus();
+            autoAssignModal.classList.add('show');
+        };
+
+        // --- 10-5. 모달 닫기 ---
+        const closeAutoAssignModal = () => {
+            autoAssignModal.classList.remove('show');
+        };
+
+        // --- 10-6. 자동 분배 실행 ---
+        const executeAutoAssign = async () => {
+            if (selectedStudentIds.length === 0) {
+                showToast('학생을 먼저 선택해주세요.', false);
+                return;
+            }
+            if (!dateSelect.value) {
+                showToast('할당 날짜를 선택해주세요.', false);
+                return;
+            }
+            if (selectedEventIds.length === 0) {
+                showToast('종목을 하나 이상 선택해주세요.', false);
+                return;
+            }
+
+            confirmAutoAssignBtn.disabled = true;
+            confirmAutoAssignBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 분배 중...';
+
+            try {
+                const data = await apiCall(`${SVR_JUNGSI}/jungsi/auto-assign-workout`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        student_account_ids: selectedStudentIds,
+                        assignment_date: dateSelect.value,
+                        event_ids: selectedEventIds,
+                        exercise_count: { min: 2, max: 3 } // 종목당 2-3개 운동
+                    })
+                });
+
+                if (data.success) {
+                    showToast(data.message, true, 4000);
+
+                    // 결과 상세 로그
+                    console.log('자동 분배 결과:', data.results);
+                    if (data.results.success && data.results.success.length > 0) {
+                        console.log('성공한 학생들:');
+                        data.results.success.forEach(s => {
+                            console.log(` - ${s.student_name}: ${s.assigned_exercises.join(', ')}`);
+                        });
+                    }
+
+                    closeAutoAssignModal();
+                    await loadMyStudents(); // 학생 목록 새로고침 (퀘스트 개수 갱신)
+
+                    // 단일 학생 선택 시 기존 할당 목록 다시 로드
+                    if (selectedStudentIds.length === 1) {
+                        loadExistingAssignments();
+                    }
+                } else {
+                    showToast(data.message || '자동 분배 실패', false);
+                }
+
+            } catch (err) {
+                console.error('자동 분배 오류:', err);
+            } finally {
+                confirmAutoAssignBtn.disabled = false;
+                confirmAutoAssignBtn.innerHTML = '<i class="fas fa-magic"></i> 자동 분배 실행';
+                checkAutoAssignButtonStatus();
+            }
+        };
+
+        // --- 자동 분배 모달 이벤트 리스너 ---
+        openAutoAssignModalBtn.addEventListener('click', openAutoAssignModal);
+        closeAutoAssignModalBtn.addEventListener('click', closeAutoAssignModal);
+        cancelAutoAssignBtn.addEventListener('click', closeAutoAssignModal);
+        confirmAutoAssignBtn.addEventListener('click', executeAutoAssign);
+
+        // 모달 외부 클릭 시 닫기
+        autoAssignModal.addEventListener('click', (e) => {
+            if (e.target === autoAssignModal) {
+                closeAutoAssignModal();
+            }
+        });
+
         // --- 9. 초기 실행 (기존 '7'번) ---
         setTodayDate();
         loadMyStudents();
         loadMasterExercises();
+        loadPracticalEvents(); // ⭐️ [신규] 실기 종목 목록 로드
 
     });
 </script>
