@@ -226,6 +226,28 @@
             font-weight: 700; color: var(--danger-color); font-size: 1rem; text-align: right;
         }
 
+        /* ⭐️ 실기 종목별 기록 스타일 */
+        .silgi-details {
+            margin-top: 10px; padding: 10px; background: #e0f2fe; border-radius: 8px;
+        }
+        .silgi-details-title {
+            font-weight: 600; font-size: 0.85rem; color: var(--primary-dark);
+            margin-bottom: 8px; display: flex; align-items: center; gap: 6px;
+        }
+        .silgi-details-title i { color: var(--primary-color); }
+        .silgi-event-list {
+            display: flex; flex-direction: column; gap: 6px;
+        }
+        .silgi-event-item {
+            display: flex; justify-content: space-between; align-items: center;
+            background: white; padding: 8px 12px; border-radius: 6px;
+            font-size: 0.85rem; border-left: 3px solid var(--primary-color);
+        }
+        .silgi-event-name { font-weight: 500; color: var(--text-primary); }
+        .silgi-event-record { display: flex; gap: 12px; align-items: center; }
+        .silgi-event-record .raw-value { color: var(--text-secondary); font-size: 0.8rem; }
+        .silgi-event-record .converted-score { font-weight: 700; color: var(--success-color); }
+
         /* --- Toast Popup --- */
         .toast-popup {
             position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
@@ -377,6 +399,11 @@
                 <span class="label">실기:</span>
                 <span class="value score-silgi">0.00점</span>
             </div>
+        </div>
+        <!-- ⭐️ 실기 종목별 상세 기록 -->
+        <div class="silgi-details" style="display: none;">
+            <div class="silgi-details-title"><i class="fas fa-running"></i> 실기 종목별 기록</div>
+            <div class="silgi-event-list"></div>
         </div>
         <div class="record-total">총점: <span class="total-value">0.00점</span></div>
     </li>
@@ -643,9 +670,9 @@ badgeContainer.appendChild(questBadge);
                     eventsList.style.color = 'var(--text-secondary)';
                 }
 
-                // ⭐️ 클릭 이벤트 추가 - 학생 기록 보기
+                // ⭐️ 클릭 이벤트 추가 - 학생 기록 보기 (U_ID 추가)
                 item.addEventListener('click', () => {
-                    openRecordModal(accountId, studentName, uni.대학명, uni.학과명);
+                    openRecordModal(accountId, studentName, uni.대학명, uni.학과명, uni.U_ID);
                 });
 
                 modalSavedUniList.appendChild(item);
@@ -653,7 +680,7 @@ badgeContainer.appendChild(questBadge);
         };
 
         // --- 6. 학생 기록 모달 열기 ---
-        window.openRecordModal = async (accountId, studentName, uniName, deptName) => {
+        window.openRecordModal = async (accountId, studentName, uniName, deptName, uId) => {
             if (!accountId) return;
 
             const selectedYear = yearSelect.value;
@@ -662,8 +689,8 @@ badgeContainer.appendChild(questBadge);
             studentRecordModal.classList.add('show');
 
             try {
-                // ⭐️ API 호출: 학생의 기록 조회
-                const data = await apiCall(`${SVR_JUNGSI}/jungsi/teacher/student-score-history/${accountId}/${selectedYear}`);
+                // ⭐️ API 호출: 학생의 기록 조회 (U_ID 파라미터 추가로 해당 학교만 필터링)
+                const data = await apiCall(`${SVR_JUNGSI}/jungsi/teacher/student-score-history/${accountId}/${selectedYear}?u_id=${uId}`);
 
                 if (data.success && data.history) {
                     renderRecordHistory(data.history);
@@ -720,6 +747,59 @@ badgeContainer.appendChild(questBadge);
                 item.querySelector('.score-naeshin').textContent = `${naeshinScore}점`;
                 item.querySelector('.score-silgi').textContent = `${silgiScore}점`;
                 item.querySelector('.total-value').textContent = `${totalScore}점`;
+
+                // ⭐️ 실기 종목별 상세 기록 렌더링
+                if (record.silgi_records_json) {
+                    try {
+                        let silgiRecords = record.silgi_records_json;
+                        // 문자열이면 JSON 파싱
+                        if (typeof silgiRecords === 'string') {
+                            silgiRecords = JSON.parse(silgiRecords);
+                        }
+
+                        if (silgiRecords && silgiRecords.length > 0) {
+                            const silgiDetails = item.querySelector('.silgi-details');
+                            const silgiEventList = item.querySelector('.silgi-event-list');
+                            silgiDetails.style.display = 'block';
+
+                            silgiRecords.forEach(ev => {
+                                const eventItem = document.createElement('div');
+                                eventItem.className = 'silgi-event-item';
+
+                                // 종목명 (event 필드 사용)
+                                const eventName = document.createElement('span');
+                                eventName.className = 'silgi-event-name';
+                                eventName.textContent = ev.event || ev.종목명 || ev.event_name || '-';
+
+                                // 기록 값 (원본 기록 + 환산 점수)
+                                const eventRecord = document.createElement('div');
+                                eventRecord.className = 'silgi-event-record';
+
+                                // 원본 기록 (record 필드 사용)
+                                const rawRecord = ev.record || ev.기록 || ev.raw_value;
+                                if (rawRecord) {
+                                    const rawValue = document.createElement('span');
+                                    rawValue.className = 'raw-value';
+                                    rawValue.textContent = rawRecord;
+                                    eventRecord.appendChild(rawValue);
+                                }
+
+                                // 환산 점수 (score 필드 사용)
+                                const convertedScore = document.createElement('span');
+                                convertedScore.className = 'converted-score';
+                                const scoreValue = ev.score ?? ev.환산점수 ?? ev.converted_score ?? 0;
+                                convertedScore.textContent = `${parseFloat(scoreValue).toFixed(2)}점`;
+                                eventRecord.appendChild(convertedScore);
+
+                                eventItem.appendChild(eventName);
+                                eventItem.appendChild(eventRecord);
+                                silgiEventList.appendChild(eventItem);
+                            });
+                        }
+                    } catch (e) {
+                        console.error('실기 기록 JSON 파싱 오류:', e);
+                    }
+                }
 
                 modalRecordList.appendChild(item);
             });
