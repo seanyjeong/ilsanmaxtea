@@ -50,6 +50,14 @@
         .student-card:hover {
             transform: translateY(-5px); box-shadow: 0 8px 16px rgba(0,0,0,0.1);
         }
+        /* ⭐️ 퀘스트 완료 학생 카드 배경 */
+        .student-card.quest-completed {
+            background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+            border: 2px solid var(--success-color);
+        }
+        .student-card.quest-completed:hover {
+            box-shadow: 0 8px 16px rgba(16, 185, 129, 0.25);
+        }
 
         /* ⭐️ (수정) 학생 카드 헤더 - 뱃지 컨테이너 */
         .student-header {
@@ -540,10 +548,11 @@ if (!isNaN(total) && total > 0) {
     const validCompleted = (!isNaN(completed) && completed >= 0) ? completed : 0;
     let questText = `일일퀘스트: (${validCompleted}/${total})`;
 
-    // 전부 완료했으면 스타일 completed 추가 + 텍스트 변경
+    // 전부 완료했으면 스타일 completed 추가 + 텍스트 변경 + 카드 배경색
     if (validCompleted >= total) {
         questBadge.classList.add('completed');
         questText = `퀘스트 완료 (${total}/${total})`;
+        card.classList.add('quest-completed'); // ⭐️ 카드 배경색 변경
     }
 
     questBadge.textContent = questText;
