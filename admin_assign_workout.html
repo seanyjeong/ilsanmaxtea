@@ -174,6 +174,102 @@
             color: #78350f;
         }
 
+        /* ⭐️ [신규] 자동분배 결과 모달 스타일 */
+        .result-modal-content {
+            max-width: 650px; width: 95%;
+        }
+        .result-student-card {
+            background: #f8fafc;
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            margin-bottom: 12px;
+            overflow: hidden;
+        }
+        .result-student-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 15px;
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+            color: #fff;
+        }
+        .result-student-header h4 {
+            margin: 0;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .result-student-header .exercise-count {
+            background: rgba(255,255,255,0.2);
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+        }
+        .result-exercise-list {
+            padding: 10px 15px;
+        }
+        .result-exercise-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px dashed var(--border-color);
+        }
+        .result-exercise-item:last-child {
+            border-bottom: none;
+        }
+        .result-exercise-name {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 500;
+        }
+        .result-exercise-name i {
+            color: var(--success-color);
+        }
+        .result-exercise-category {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            background: #e2e8f0;
+            padding: 2px 8px;
+            border-radius: 10px;
+        }
+        .btn-edit-student {
+            background: var(--warning-color);
+            color: #fff;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            transition: all 0.2s;
+        }
+        .btn-edit-student:hover {
+            background: #d97706;
+        }
+        .result-summary {
+            background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+            border: 1px solid #10b981;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        .result-summary h3 {
+            margin: 0 0 5px;
+            color: #065f46;
+            font-size: 1.1rem;
+        }
+        .result-summary p {
+            margin: 0;
+            color: #047857;
+            font-size: 0.9rem;
+        }
+
         .header-controls .btn-secondary {
             font-size: 0.8rem; padding: 8px 10px;
         }
@@ -446,6 +542,33 @@
     </div>
 </div>
 
+<!-- ⭐️ [신규] 자동 분배 결과 모달 -->
+<div class="modal-overlay" id="autoAssignResultModal">
+    <div class="modal-content result-modal-content">
+        <div class="modal-header">
+            <h3><i class="fas fa-check-circle" style="color: var(--success-color);"></i> 자동 분배 완료</h3>
+            <button type="button" class="modal-close" id="closeResultModal">&times;</button>
+        </div>
+        <div class="modal-body">
+            <!-- 요약 정보 -->
+            <div class="result-summary" id="resultSummary">
+                <h3><i class="fas fa-check"></i> 분배 완료!</h3>
+                <p>0명의 학생에게 총 0개의 운동이 배정되었습니다.</p>
+            </div>
+
+            <!-- 학생별 결과 목록 -->
+            <div id="resultStudentList" style="max-height: 400px; overflow-y: auto;">
+                <!-- 동적으로 생성 -->
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" id="closeResultBtn">
+                <i class="fas fa-times"></i> 닫기
+            </button>
+        </div>
+    </div>
+</div>
+
 <template id="assignmentItemTemplate">
     <li class="assignment-item" data-exercise-id="{{exercise_id}}">
         <h5>
@@ -510,6 +633,13 @@
         const eventSelector = document.getElementById('eventSelector');
         const selectedStudentsPreview = document.getElementById('selectedStudentsPreview');
         const selectedDatePreview = document.getElementById('selectedDatePreview');
+
+        // ⭐️ [신규] 자동 분배 결과 모달 요소들
+        const autoAssignResultModal = document.getElementById('autoAssignResultModal');
+        const closeResultModalBtn = document.getElementById('closeResultModal');
+        const closeResultBtn = document.getElementById('closeResultBtn');
+        const resultSummary = document.getElementById('resultSummary');
+        const resultStudentList = document.getElementById('resultStudentList');
 
         let myStudents = [];
         let selectedStudentIds = []; // ⭐️ [신규] 선택된 학생 ID 목록
@@ -1276,24 +1406,15 @@ const showToast = (message, isSuccess = true, duration = 3000) => { // ⭐️ du
                 });
 
                 if (data.success) {
-                    showToast(data.message, true, 4000);
-
-                    // 결과 상세 로그
                     console.log('자동 분배 결과:', data.results);
-                    if (data.results.success && data.results.success.length > 0) {
-                        console.log('성공한 학생들:');
-                        data.results.success.forEach(s => {
-                            console.log(` - ${s.student_name}: ${s.assigned_exercises.join(', ')}`);
-                        });
-                    }
 
                     closeAutoAssignModal();
+
+                    // ⭐️ 결과 모달 표시
+                    showAutoAssignResultModal(data);
+
                     await loadMyStudents(); // 학생 목록 새로고침 (퀘스트 개수 갱신)
 
-                    // 단일 학생 선택 시 기존 할당 목록 다시 로드
-                    if (selectedStudentIds.length === 1) {
-                        loadExistingAssignments();
-                    }
                 } else {
                     showToast(data.message || '자동 분배 실패', false);
                 }
@@ -1307,6 +1428,124 @@ const showToast = (message, isSuccess = true, duration = 3000) => { // ⭐️ du
             }
         };
 
+        // --- 10-7. 자동 분배 결과 모달 표시 ---
+        const showAutoAssignResultModal = (data) => {
+            const successList = data.results?.success || [];
+            const failedList = data.results?.failed || [];
+
+            // 총 운동 개수 계산
+            let totalExercises = 0;
+            successList.forEach(s => {
+                totalExercises += (s.assigned_exercises?.length || 0);
+            });
+
+            // 요약 정보 업데이트
+            resultSummary.innerHTML = `
+                <h3><i class="fas fa-check"></i> 분배 완료!</h3>
+                <p><strong>${successList.length}명</strong>의 학생에게 총 <strong>${totalExercises}개</strong>의 운동이 배정되었습니다.</p>
+                ${failedList.length > 0 ? `<p style="color: #dc2626; margin-top: 5px;">(${failedList.length}명 실패)</p>` : ''}
+            `;
+
+            // 학생별 결과 목록 생성
+            resultStudentList.innerHTML = '';
+
+            successList.forEach(student => {
+                const card = document.createElement('div');
+                card.className = 'result-student-card';
+
+                const exercises = student.assigned_exercises || [];
+
+                card.innerHTML = `
+                    <div class="result-student-header">
+                        <h4>
+                            <i class="fas fa-user"></i>
+                            ${student.student_name}
+                            <span class="exercise-count">${exercises.length}개 운동</span>
+                        </h4>
+                        <button type="button" class="btn-edit-student" data-student-id="${student.student_id}">
+                            <i class="fas fa-edit"></i> 횟수설정
+                        </button>
+                    </div>
+                    <div class="result-exercise-list">
+                        ${exercises.map(ex => `
+                            <div class="result-exercise-item">
+                                <span class="result-exercise-name">
+                                    <i class="fas fa-check-circle"></i>
+                                    ${ex}
+                                </span>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+
+                // 수정하기 버튼 이벤트
+                const editBtn = card.querySelector('.btn-edit-student');
+                editBtn.addEventListener('click', () => {
+                    // 해당 학생만 선택하고 결과 모달 닫기
+                    goToEditStudent(student.student_id);
+                });
+
+                resultStudentList.appendChild(card);
+            });
+
+            // 실패한 학생 표시
+            if (failedList.length > 0) {
+                const failedCard = document.createElement('div');
+                failedCard.className = 'result-student-card';
+                failedCard.style.borderColor = '#ef4444';
+
+                failedCard.innerHTML = `
+                    <div class="result-student-header" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);">
+                        <h4><i class="fas fa-exclamation-triangle"></i> 실패한 학생 (${failedList.length}명)</h4>
+                    </div>
+                    <div class="result-exercise-list">
+                        ${failedList.map(f => `
+                            <div class="result-exercise-item">
+                                <span style="color: #dc2626;">ID: ${f.student_id} - ${f.reason || '알 수 없는 오류'}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+                resultStudentList.appendChild(failedCard);
+            }
+
+            // 모달 표시
+            autoAssignResultModal.classList.add('show');
+        };
+
+        // --- 10-8. 특정 학생 수정 페이지로 이동 ---
+        const goToEditStudent = async (studentId) => {
+            // 결과 모달 닫기
+            autoAssignResultModal.classList.remove('show');
+
+            // 해당 학생만 선택
+            selectedStudentIds = [studentId];
+
+            // 학생 목록 UI 업데이트
+            const checkboxes = studentDropdownList.querySelectorAll('input[type="checkbox"]');
+            checkboxes.forEach(cb => {
+                cb.checked = (parseInt(cb.value) === studentId);
+            });
+
+            // 선택된 학생 표시 업데이트
+            updateStudentSelectorText();
+
+            // 해당 학생의 기존 할당 로드
+            await loadExistingAssignments();
+
+            // 스크롤을 할당 목록으로 이동
+            setTimeout(() => {
+                assignmentList.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                // 스크롤 후 토스트 표시
+                showToast('세트/횟수를 설정한 후 저장해주세요!', true, 5000);
+            }, 300);
+        };
+
+        // --- 10-9. 결과 모달 닫기 ---
+        const closeResultModal = () => {
+            autoAssignResultModal.classList.remove('show');
+        };
+
         // --- 자동 분배 모달 이벤트 리스너 ---
         openAutoAssignModalBtn.addEventListener('click', openAutoAssignModal);
         closeAutoAssignModalBtn.addEventListener('click', closeAutoAssignModal);
@@ -1317,6 +1556,15 @@ const showToast = (message, isSuccess = true, duration = 3000) => { // ⭐️ du
         autoAssignModal.addEventListener('click', (e) => {
             if (e.target === autoAssignModal) {
                 closeAutoAssignModal();
+            }
+        });
+
+        // --- 결과 모달 이벤트 리스너 ---
+        closeResultModalBtn.addEventListener('click', closeResultModal);
+        closeResultBtn.addEventListener('click', closeResultModal);
+        autoAssignResultModal.addEventListener('click', (e) => {
+            if (e.target === autoAssignResultModal) {
+                closeResultModal();
             }
         });
 
