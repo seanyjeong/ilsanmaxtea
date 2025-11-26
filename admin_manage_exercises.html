@@ -61,6 +61,31 @@
         .status-badge.active { background-color: var(--success-color); color: #fff; }
         .status-badge.inactive { background-color: var(--border-color); color: var(--text-secondary); }
 
+        /* ⭐️ [신규] 종목 매핑 체크박스 스타일 */
+        .event-mapping-group {
+            display: flex; flex-wrap: wrap; gap: 8px;
+            padding: 10px; background: #f8fafc;
+            border: 1px solid var(--border-color); border-radius: 8px;
+        }
+        .event-mapping-item {
+            display: flex; align-items: center; gap: 6px;
+            background: #fff; padding: 6px 10px; border-radius: 6px;
+            border: 1px solid var(--border-color); cursor: pointer;
+            transition: all 0.2s; font-size: 0.85rem;
+        }
+        .event-mapping-item:hover { border-color: var(--primary-color); }
+        .event-mapping-item.checked {
+            background: var(--primary-color); color: #fff;
+            border-color: var(--primary-color);
+        }
+        .event-mapping-item input[type="checkbox"] { cursor: pointer; }
+        .event-tag {
+            display: inline-flex; align-items: center; gap: 4px;
+            background: var(--primary-color); color: #fff;
+            padding: 2px 8px; border-radius: 12px; font-size: 0.75rem;
+            margin-right: 4px;
+        }
+
         /* 로딩/데이터 없음 */
         .loading, .no-data { text-align: center; padding: 30px; color: var(--text-secondary); }
 
@@ -120,6 +145,12 @@
                     <option value="0">비활성화 (숨기기)</option>
                 </select>
             </div>
+            <div class="form-group full-width">
+                <label>관련 종목 선택 (자동 분배용)</label>
+                <div class="event-mapping-group" id="eventMappingGroup">
+                    <span style="color: var(--text-secondary); font-size: 0.9rem;">종목 로딩 중...</span>
+                </div>
+            </div>
             <div class="form-actions">
                 <button type="button" id="cancelEditBtn" class="btn btn-secondary" style="display: none;">취소</button>
                 <button type="button" id="saveExerciseBtn" class="btn btn-primary">
@@ -138,6 +169,7 @@
                         <th>운동명</th>
                         <th>카테고리</th>
                         <th>세부</th>
+                        <th>관련 종목</th>
                         <th>경험치</th>
                         <th>상태</th>
                         <th>관리</th>
@@ -158,6 +190,7 @@
         <td class="name">운동명</td>
         <td class="category">카테고리</td>
         <td class="sub-category">세부</td>
+        <td class="event-mappings">-</td>
         <td class="exp-value" style="font-weight: 600; color: var(--primary-color);">+1 EXP</td>
         <td><span class="status-badge">상태</span></td>
         <td>
@@ -191,8 +224,11 @@
         const cancelEditBtn = document.getElementById('cancelEditBtn');
         const exerciseListBody = document.getElementById('exerciseListBody');
         const listLoading = document.getElementById('listLoading');
+        const eventMappingGroup = document.getElementById('eventMappingGroup');
 
         let allExercises = []; // 전체 운동 목록 캐시
+        let practicalEvents = []; // ⭐️ [신규] 실기 종목 목록
+        let exerciseEventMappings = {}; // ⭐️ [신규] 운동별 종목 매핑 (exercise_id -> [{event_id, event_name}])
 
         // --- 인증 확인 (관리자) ---
         const getToken = () => localStorage.getItem('jwt_token');
@@ -249,6 +285,63 @@
         // --- Toast Popup 함수 ---
         const showToast = (message, isSuccess = true) => { const el = document.createElement('div'); el.textContent = message; el.className = `toast-popup ${isSuccess ? 'success' : 'error'}`; document.body.appendChild(el); setTimeout(() => el.classList.add('show'), 10); setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 500); }, 2500); };
 
+        // --- 0. 실기 종목 목록 로드 ---
+        const loadPracticalEvents = async () => {
+            eventMappingGroup.innerHTML = '<span style="color: var(--text-secondary); font-size: 0.9rem;">종목 로딩 중...</span>';
+            try {
+                const data = await apiCall(`${SVR_JUNGSI}/jungsi/admin/practical-events`);
+                if (data.success && data.events) {
+                    practicalEvents = data.events;
+                    renderEventMappingCheckboxes();
+                } else {
+                    eventMappingGroup.innerHTML = '<span style="color: var(--danger-color); font-size: 0.9rem;">종목 로드 실패</span>';
+                }
+            } catch (err) {
+                console.error('실기 종목 로딩 오류:', err);
+                eventMappingGroup.innerHTML = '<span style="color: var(--danger-color); font-size: 0.9rem;">종목 로드 오류</span>';
+            }
+        };
+
+        // --- 0-1. 종목 매핑 체크박스 렌더링 ---
+        const renderEventMappingCheckboxes = () => {
+            eventMappingGroup.innerHTML = '';
+            if (practicalEvents.length === 0) {
+                eventMappingGroup.innerHTML = '<span style="color: var(--text-secondary); font-size: 0.9rem;">등록된 종목이 없습니다.</span>';
+                return;
+            }
+            practicalEvents.forEach(event => {
+                const item = document.createElement('label');
+                item.className = 'event-mapping-item';
+                item.innerHTML = `
+                    <input type="checkbox" value="${event.event_id}" data-event-name="${event.event_name}">
+                    ${event.event_name}
+                `;
+                const checkbox = item.querySelector('input[type="checkbox"]');
+                checkbox.addEventListener('change', () => {
+                    item.classList.toggle('checked', checkbox.checked);
+                });
+                eventMappingGroup.appendChild(item);
+            });
+        };
+
+        // --- 0-2. 선택된 종목 ID 배열 가져오기 ---
+        const getSelectedEventMappings = () => {
+            const checkboxes = eventMappingGroup.querySelectorAll('input[type="checkbox"]:checked');
+            return Array.from(checkboxes).map(cb => ({
+                event_id: parseInt(cb.value),
+                priority: 2 // 기본 우선순위
+            }));
+        };
+
+        // --- 0-3. 종목 체크박스 선택 상태 설정 ---
+        const setEventMappingCheckboxes = (eventIds) => {
+            eventMappingGroup.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+                const isChecked = eventIds.includes(parseInt(cb.value));
+                cb.checked = isChecked;
+                cb.closest('.event-mapping-item').classList.toggle('checked', isChecked);
+            });
+        };
+
         // --- 1. 운동 목록 및 카테고리 로드 ---
         const loadAllExercises = async () => {
             listLoading.style.display = 'table-row';
@@ -259,11 +352,15 @@
                 const data = await apiCall(`${SVR_JUNGSI}/jungsi/admin/master-exercises`);
                 if (data.success && data.exercises) {
                     allExercises = data.exercises;
+
+                    // ⭐️ [신규] 각 운동의 종목 매핑 로드
+                    await loadAllExerciseEventMappings(allExercises);
+
                     renderExerciseList(allExercises);
                 } else {
-                    exerciseListBody.innerHTML = '<tr><td colspan="5" class="no-data">운동 목록 로드 실패</td></tr>';
+                    exerciseListBody.innerHTML = '<tr><td colspan="7" class="no-data">운동 목록 로드 실패</td></tr>';
                 }
-                
+
                 // 1.2. 기존 카테고리/세부 카테고리 목록 (Datalist용)
                 const catData = await apiCall(`${SVR_JUNGSI}/jungsi/admin/exercise-categories`);
                 if (catData.success) {
@@ -276,15 +373,32 @@
             }
         };
 
+        // --- 1-1. 모든 운동의 종목 매핑 로드 ---
+        const loadAllExerciseEventMappings = async (exercises) => {
+            exerciseEventMappings = {};
+            // 병렬로 모든 운동의 매핑 조회
+            const promises = exercises.map(async (ex) => {
+                try {
+                    const data = await apiCall(`${SVR_JUNGSI}/jungsi/admin/exercise-event-mappings/${ex.exercise_id}`);
+                    if (data.success && data.mappings) {
+                        exerciseEventMappings[ex.exercise_id] = data.mappings;
+                    }
+                } catch (err) {
+                    console.warn(`운동 ${ex.exercise_id} 종목 매핑 로드 실패:`, err);
+                }
+            });
+            await Promise.all(promises);
+        };
+
         // --- 2. 목록 렌더링 ---
         const renderExerciseList = (exercises) => {
             listLoading.style.display = 'none';
             exerciseListBody.innerHTML = '';
             if (exercises.length === 0) {
-                exerciseListBody.innerHTML = '<tr><td colspan="6" class="no-data">등록된 운동이 없습니다.</td></tr>';
+                exerciseListBody.innerHTML = '<tr><td colspan="7" class="no-data">등록된 운동이 없습니다.</td></tr>';
                 return;
             }
-            
+
             const template = document.getElementById('exerciseItemTemplate');
             exercises.forEach(ex => {
                 const item = template.content.cloneNode(true).firstElementChild;
@@ -294,6 +408,17 @@
                 item.querySelector('.sub-category').textContent = ex.sub_category || '-';
                 item.querySelector('.exp-value').textContent = `+${ex.exp_value || 1} EXP`;
 
+                // ⭐️ [신규] 종목 매핑 태그 표시
+                const mappingsCell = item.querySelector('.event-mappings');
+                const mappings = exerciseEventMappings[ex.exercise_id] || [];
+                if (mappings.length > 0) {
+                    mappingsCell.innerHTML = mappings.map(m =>
+                        `<span class="event-tag">${m.event_name}</span>`
+                    ).join('');
+                } else {
+                    mappingsCell.innerHTML = '<span style="color: var(--text-secondary); font-size: 0.8rem;">-</span>';
+                }
+
                 const statusBadge = item.querySelector('.status-badge');
                 if (ex.is_active) {
                     statusBadge.textContent = '활성';
@@ -302,10 +427,10 @@
                     statusBadge.textContent = '비활성';
                     statusBadge.classList.add('inactive');
                 }
-                
+
                 item.querySelector('.edit-btn').addEventListener('click', () => startEdit(ex));
                 item.querySelector('.delete-btn').addEventListener('click', () => deleteExercise(ex.exercise_id, ex.exercise_name));
-                
+
                 exerciseListBody.appendChild(item);
             });
         };
@@ -332,6 +457,8 @@
             saveExerciseBtn.innerHTML = '<i class="fas fa-save"></i> 저장하기';
             saveExerciseBtn.disabled = false;
             cancelEditBtn.style.display = 'none';
+            // ⭐️ [신규] 종목 체크박스 초기화
+            setEventMappingCheckboxes([]);
         };
 
         // --- 5. 수정 시작 ---
@@ -345,6 +472,12 @@
             exerciseStatus.value = exercise.is_active ? '1' : '0';
             saveExerciseBtn.innerHTML = '<i class="fas fa-edit"></i> 수정 완료';
             cancelEditBtn.style.display = 'inline-flex';
+
+            // ⭐️ [신규] 해당 운동의 종목 매핑 체크박스 설정
+            const mappings = exerciseEventMappings[exercise.exercise_id] || [];
+            const mappedEventIds = mappings.map(m => m.event_id);
+            setEventMappingCheckboxes(mappedEventIds);
+
             window.scrollTo({ top: 0, behavior: 'smooth' });
         };
 
@@ -356,6 +489,7 @@
             const subCategory = exerciseSubCategory.value.trim() || null;
             const expValue = parseInt(exerciseExpValue.value) || 1;
             const isActive = exerciseStatus.value === '1';
+            const selectedEventMappings = getSelectedEventMappings(); // ⭐️ [신규]
 
             if (!name) {
                 showToast('운동명은 필수입니다.', false);
@@ -376,7 +510,7 @@
                     : `${SVR_JUNGSI}/jungsi/admin/master-exercises`; // 추가
                 const method = id ? 'PUT' : 'POST';
 
-                await apiCall(url, {
+                const result = await apiCall(url, {
                     method: method,
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -387,6 +521,18 @@
                         is_active: isActive
                     })
                 });
+
+                // ⭐️ [신규] 종목 매핑 업데이트 (수정 시 또는 추가 후)
+                const exerciseIdToUpdate = id || result.exercise_id;
+                if (exerciseIdToUpdate) {
+                    await apiCall(`${SVR_JUNGSI}/jungsi/admin/exercise-event-mappings/${exerciseIdToUpdate}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            event_mappings: selectedEventMappings
+                        })
+                    });
+                }
 
                 showToast(id ? '✅ 운동 정보가 수정되었습니다.' : '✅ 새 운동이 추가되었습니다.', true);
                 resetForm();
@@ -439,6 +585,7 @@
         cancelEditBtn.addEventListener('click', resetForm);
 
         // --- 초기 실행 ---
+        loadPracticalEvents(); // ⭐️ [신규] 실기 종목 목록 먼저 로드
         loadAllExercises();
     });
 </script>
